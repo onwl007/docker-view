@@ -1,0 +1,11 @@
+http:
+  addr: ":8080"
+
+log:
+  level: "info"
+
+docker:
+  host: "unix:///var/run/docker.sock"
+
+web:
+  dir: "./web/dist"
