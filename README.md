@@ -72,6 +72,12 @@ Run the server:
 go run ./cmd/docker-view --config ./configs/config.example.yaml
 ```
 
+Run the backend in debug-friendly mode:
+
+```bash
+make debug
+```
+
 Run unit tests:
 
 ```bash
@@ -102,6 +108,25 @@ pnpm lint
 pnpm test
 pnpm typecheck
 ```
+
+## Makefile
+
+The repository now includes a root [Makefile](/Users/wanglei/workspace/workspace-github/docker-view/Makefile) for common workflows:
+
+```bash
+make debug
+make debug-build
+make test
+make lint
+make build
+make release
+```
+
+Notes:
+- `make debug` starts the Go service with `-gcflags=all=-N -l` and uses `CONFIG=./configs/config.example.yaml` by default.
+- `make build` generates the frontend bundle and the backend binary under `build/bin/`.
+- `make release` runs frontend build, backend/frontend tests, lint, typecheck, then creates a versioned tarball under `build/dist/`.
+- Release metadata can be overridden with `VERSION`, `GOOS`, `GOARCH`, `COMMIT`, and `BUILD_DATE`.
 
 ## Current Status
 

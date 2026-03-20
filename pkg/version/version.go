@@ -1,7 +1,19 @@
 package version
 
-const defaultVersion = "dev"
+var (
+	version = "dev"
+	commit  = "unknown"
+	date    = "unknown"
+)
 
 func String() string {
-	return defaultVersion
+	return version
+}
+
+func Commit() string {
+	return commit
+}
+
+func Date() string {
+	return date
 }
