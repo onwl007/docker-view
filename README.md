@@ -138,10 +138,11 @@ The repository contains:
 - a Go application entrypoint in [cmd/docker-view/main.go](/Users/wanglei/workspace/workspace-github/docker-view/cmd/docker-view/main.go)
 - Cobra and Viper wiring in [internal/cli/root.go](/Users/wanglei/workspace/workspace-github/docker-view/internal/cli/root.go)
 - configuration defaults in [internal/config/config.go](/Users/wanglei/workspace/workspace-github/docker-view/internal/config/config.go)
-- a minimal HTTP server with a health endpoint in [internal/http/server.go](/Users/wanglei/workspace/workspace-github/docker-view/internal/http/server.go)
-- a standalone React app scaffold in [web/package.json](/Users/wanglei/workspace/workspace-github/docker-view/web/package.json)
+- a Phase 1 Docker summary gateway and system summary service in [internal/docker/client.go](/Users/wanglei/workspace/workspace-github/docker-view/internal/docker/client.go) and [internal/service/system.go](/Users/wanglei/workspace/workspace-github/docker-view/internal/service/system.go)
+- an HTTP server with `/healthz`, `/api/v1/system/summary`, unified API envelopes, and SPA asset serving in [internal/http/server.go](/Users/wanglei/workspace/workspace-github/docker-view/internal/http/server.go)
+- a standalone React app with a Phase 1 application shell and dashboard route in [web/src/routes/root.tsx](/Users/wanglei/workspace/workspace-github/docker-view/web/src/routes/root.tsx) and [web/src/routes/dashboard.tsx](/Users/wanglei/workspace/workspace-github/docker-view/web/src/routes/dashboard.tsx)
 
 Next steps:
-1. Add real `/api/v1` handlers for hosts, containers, images, logs, and audit records.
-2. Expand the web app with TanStack Router, TanStack Query, typed API calls, Tailwind CSS, and shadcn/ui-based pages.
-3. Add deployment assets under `deployments/`.
+1. Implement Phase 2 resource read-only APIs and UI workspaces for containers, images, volumes, and networks.
+2. Expand the typed frontend API layer with route-level loaders, filters, and error/empty states for resource pages.
+3. Add later-phase monitoring, settings, logs, terminal, Compose, and deployment assets under `deployments/`.

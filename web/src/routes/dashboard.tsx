@@ -1,250 +1,245 @@
 import { useQuery } from '@tanstack/react-query'
 import {
-  Activity,
   ArrowUpRight,
-  Boxes,
-  Gauge,
+  Box,
+  Container,
+  Cpu,
   HardDrive,
   Image as ImageIcon,
   Network,
-  ShieldCheck,
+  ServerCog,
 } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import { PageHeader } from '@/components/app/page-header'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import { dashboardSummary, performancePulse } from '@/lib/mock-data'
-import { dashboardQueryOptions } from '@/router'
+import { systemSummaryQueryOptions } from '@/features/dashboard/query-options'
+import type { SystemSummary } from '@/lib/api/client'
 
-const quickStats = [
-  { label: 'Containers', value: '14', detail: '10 healthy, 2 paused, 2 exited', icon: Boxes },
-  { label: 'Images', value: '42', detail: 'Nine dangling layers worth reviewing', icon: ImageIcon },
-  { label: 'Volumes', value: '14', detail: 'Three unattached, one critical database set', icon: HardDrive },
-  { label: 'Networks', value: '8', detail: 'Bridge-heavy topology with 23 endpoints', icon: Network },
-] as const
-
-const operationsFeed = [
-  {
-    title: 'docker-view-api restarted cleanly',
-    detail: 'Restart policy applied after image rollout 14 minutes ago.',
-  },
-  {
-    title: 'metrics-worker paused for inspection',
-    detail: 'Operator action pending after an abnormal export spike.',
-  },
-  {
-    title: 'nightly-backups volume passed retention audit',
-    detail: 'Last snapshot written at 02:00 UTC with no prune action required.',
-  },
-] as const
+const formatter = new Intl.NumberFormat('en-US')
 
 export function DashboardPage() {
-  const { data, error, isLoading } = useQuery(dashboardQueryOptions)
+  const { data, error, isLoading, refetch, isFetching } = useQuery(systemSummaryQueryOptions)
 
   return (
-    <div className="space-y-6">
-      <Card className="overflow-hidden">
-        <CardHeader className="gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-4">
-            <Badge className="w-fit">Dashboard</Badge>
-            <div className="space-y-3">
-              <CardTitle className="max-w-3xl text-3xl sm:text-4xl">
-                A single operator surface for host health, workload pressure,
-                and the next action worth taking.
-              </CardTitle>
-              <CardDescription className="max-w-3xl text-base">
-                The dashboard mirrors OrbStack’s calm information density: quick
-                health signals first, deeper resource workspaces one click away.
-              </CardDescription>
-            </div>
+    <div className="space-y-5">
+      <PageHeader
+        eyebrow="Overview"
+        title="Dashboard"
+        description="Phase 1 establishes the shared application shell, summary API contract, and the first operator-facing dashboard route."
+        actions={
+          <Button
+            variant="secondary"
+            className="gap-2"
+            onClick={() => {
+              void refetch()
+            }}
+          >
+            <ArrowUpRight className="h-4 w-4" />
+            {isFetching ? 'Refreshing' : 'Refresh'}
+          </Button>
+        }
+      />
+
+      {isLoading ? <DashboardLoadingState /> : null}
+      {error ? <DashboardErrorState message={error.message} /> : null}
+      {data ? <DashboardView summary={data} /> : null}
+    </div>
+  )
+}
+
+export function DashboardView({ summary }: { summary: SystemSummary }) {
+  const resourceCards = [
+    {
+      label: 'Containers',
+      value: formatter.format(summary.containers.total),
+      detail: `${summary.containers.running ?? 0} running, ${summary.containers.stopped ?? 0} stopped`,
+      icon: Container,
+    },
+    {
+      label: 'Images',
+      value: formatter.format(summary.images.total),
+      detail: `Docker ${summary.dockerVersion}`,
+      icon: ImageIcon,
+    },
+    {
+      label: 'Volumes',
+      value: formatter.format(summary.volumes.total),
+      detail: `Endpoint ${summary.dockerHost}`,
+      icon: HardDrive,
+    },
+    {
+      label: 'Networks',
+      value: formatter.format(summary.networks.total),
+      detail: `API ${summary.apiVersion}`,
+      icon: Network,
+    },
+  ] as const
+
+  const systemCards = [
+    {
+      label: 'Engine',
+      value: summary.engineStatus,
+      detail: summary.hostName,
+      icon: ServerCog,
+    },
+    {
+      label: 'CPU Cores',
+      value: formatter.format(summary.host.cpuCores),
+      detail: 'Reported by Docker info',
+      icon: Cpu,
+    },
+    {
+      label: 'Memory',
+      value: formatBytes(summary.host.memoryBytes),
+      detail: 'Total host memory',
+      icon: Box,
+    },
+    {
+      label: 'Sampled At',
+      value: formatTimestamp(summary.sampledAt),
+      detail: 'UTC snapshot time',
+      icon: ArrowUpRight,
+    },
+  ] as const
+
+  return (
+    <div className="space-y-5">
+      <section className="grid gap-4 xl:grid-cols-4">
+        {resourceCards.map((card) => (
+          <SummaryCard key={card.label} {...card} />
+        ))}
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-4">
+        {systemCards.map((card) => (
+          <SummaryCard key={card.label} {...card} />
+        ))}
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-[28px] border border-[color:var(--border)] bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--muted-foreground)]">
+            Phase 1 checklist
           </div>
-          <div className="grid w-full gap-3 sm:max-w-md sm:grid-cols-2">
-            <Button className="justify-between">
-              Open terminal
-              <ArrowUpRight className="h-4 w-4" />
-            </Button>
-            <Button variant="secondary" className="justify-between">
-              Review alerts
-              <ShieldCheck className="h-4 w-4" />
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-3">
-          {dashboardSummary.map((item) => (
-            <div
-              key={item.label}
-              className="rounded-[24px] border border-[color:var(--border)] bg-[color:var(--background)] p-5"
-            >
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-foreground)]">
-                {item.label}
-              </div>
-              <div className="mt-2 font-['Sora',ui-sans-serif,sans-serif] text-2xl font-semibold tracking-[-0.05em] text-[color:var(--foreground)]">
-                {item.value}
-              </div>
-              <p className="mt-2 text-sm leading-6 text-[color:var(--muted-foreground)]">
-                {item.hint}
-              </p>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
-        <Card className="overflow-hidden">
-          <CardHeader className="border-b border-[color:var(--border)] pb-5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <CardTitle className="text-2xl">Resource map</CardTitle>
-                <CardDescription className="mt-2">
-                  Jump directly into the operational surface that needs attention.
-                </CardDescription>
-              </div>
-              <Button variant="ghost">Open all</Button>
-            </div>
-          </CardHeader>
-          <CardContent className="grid gap-4 p-6 md:grid-cols-2">
-          {quickStats.map((item) => {
-            const Icon = item.icon
-
-            return (
+          <h2 className="mt-3 font-['Sora',ui-sans-serif,sans-serif] text-2xl font-semibold tracking-[-0.04em] text-[color:var(--foreground)]">
+            Application shell, API contract, and dashboard summary are live.
+          </h2>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            {[
+              'Shared sidebar and header layout',
+              'TanStack Router + Query bootstrap',
+              'Typed /api/v1/system/summary client',
+              'Backend Docker engine summary handler',
+            ].map((item) => (
               <div
-                key={item.label}
-                className="rounded-[24px] border border-[color:var(--border)] bg-[color:var(--background)] p-5"
+                key={item}
+                className="rounded-[22px] border border-[color:var(--border)] bg-[color:var(--panel-subtle)] px-4 py-4 text-sm font-medium text-[color:var(--foreground)]"
               >
-                <div className="mb-6 inline-flex rounded-2xl bg-[color:var(--panel-strong)] p-3 text-[color:var(--foreground)]">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-foreground)]">
-                  {item.label}
-                </div>
-                <div className="mt-2 font-['Sora',ui-sans-serif,sans-serif] text-xl font-semibold tracking-[-0.04em] text-[color:var(--foreground)]">
-                  {item.value}
-                </div>
-                <p className="mt-2 text-sm leading-6 text-[color:var(--muted-foreground)]">
-                  {item.detail}
-                </p>
-              </div>
-            )
-          })}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>API reachability</CardTitle>
-            <CardDescription>
-              Data below comes from the current Go health endpoint.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="rounded-[24px] border border-[color:var(--border)] bg-[color:var(--background)] p-5">
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-foreground)]">
-                Service status
-              </div>
-              <div className="mt-2 text-2xl font-semibold text-[color:var(--foreground)]">
-                {isLoading ? 'checking' : data?.status ?? 'unreachable'}
-              </div>
-            </div>
-
-            <div className="rounded-[24px] border border-[color:var(--border)] bg-[color:var(--background)] p-5">
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-foreground)]">
-                Bound address
-              </div>
-              <div className="mt-2 break-all font-mono text-sm text-[color:var(--foreground)]">
-                {data?.addr ?? 'http://localhost:8080 via Vite proxy'}
-              </div>
-            </div>
-
-            {error ? (
-              <div className="rounded-[24px] border border-amber-300 bg-amber-50 px-5 py-4 text-sm leading-6 text-amber-900">
-                Backend health check is not reachable yet. The frontend shell is
-                still running, and the Vite dev server will proxy `/healthz` and
-                `/api/*` to `http://localhost:8080` once the Go service is up.
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent operator activity</CardTitle>
-            <CardDescription>
-              A compact feed keeps the dashboard useful even before logs and
-              audit APIs are fully wired.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {operationsFeed.map((item) => (
-              <div
-                key={item.title}
-                className="rounded-[24px] border border-[color:var(--border)] bg-[color:var(--background)] px-5 py-4"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="rounded-2xl bg-[color:var(--panel-strong)] p-2.5">
-                    <Activity className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-[color:var(--foreground)]">
-                      {item.title}
-                    </div>
-                    <div className="mt-1 text-sm leading-6 text-[color:var(--muted-foreground)]">
-                      {item.detail}
-                    </div>
-                  </div>
-                </div>
+                {item}
               </div>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Performance pulse</CardTitle>
-            <CardDescription>
-              Small, high-signal cards patterned after a desktop sidebar.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {performancePulse.map((item) => (
-              <div
-                key={item.label}
-                className="rounded-[24px] border border-[color:var(--border)] bg-[color:var(--background)] px-5 py-4"
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <div className="text-sm text-[color:var(--muted-foreground)]">
-                    {item.label}
-                  </div>
-                  <div className="font-['Sora',ui-sans-serif,sans-serif] text-lg font-semibold tracking-[-0.04em] text-[color:var(--foreground)]">
-                    {item.value}
-                  </div>
-                </div>
-              </div>
-            ))}
-            <div className="rounded-[24px] border border-[color:var(--border)] bg-[color:var(--panel-strong)] px-5 py-4">
-              <div className="flex items-center gap-3">
-                <div className="rounded-2xl bg-[color:var(--background)] p-2.5">
-                  <Gauge className="h-4 w-4" />
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-[color:var(--foreground)]">
-                    Query shell active
-                  </div>
-                  <div className="text-sm text-[color:var(--muted-foreground)]">
-                    {isLoading ? 'Reloading route cache' : 'Prefetch ready for navigation'}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="rounded-[28px] border border-[color:var(--border)] bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--muted-foreground)]">
+            System snapshot
+          </div>
+          <dl className="mt-4 space-y-4">
+            <SnapshotRow label="Host name" value={summary.hostName} />
+            <SnapshotRow label="Docker host" value={summary.dockerHost} mono />
+            <SnapshotRow label="Docker version" value={summary.dockerVersion} />
+            <SnapshotRow label="API version" value={summary.apiVersion} />
+          </dl>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function SummaryCard({
+  label,
+  value,
+  detail,
+  icon: Icon,
+}: {
+  label: string
+  value: string
+  detail: string
+  icon: typeof Container
+}) {
+  return (
+    <div className="rounded-[28px] border border-[color:var(--border)] bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-sm font-medium text-[color:var(--muted-foreground)]">{label}</div>
+          <div className="mt-4 font-['Sora',ui-sans-serif,sans-serif] text-4xl font-semibold tracking-[-0.06em] text-[color:var(--foreground)]">
+            {value}
+          </div>
+          <div className="mt-2 text-sm text-[color:var(--muted-foreground)]">{detail}</div>
+        </div>
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[color:var(--panel-subtle)] text-[color:var(--primary)]">
+          <Icon className="h-5 w-5" />
+        </div>
       </div>
     </div>
   )
+}
+
+function SnapshotRow({
+  label,
+  value,
+  mono,
+}: {
+  label: string
+  value: string
+  mono?: boolean
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-[color:var(--border)] pb-4 last:border-b-0 last:pb-0">
+      <dt className="text-sm text-[color:var(--muted-foreground)]">{label}</dt>
+      <dd
+        className={mono ? 'font-mono text-sm text-[color:var(--foreground)]' : 'text-sm font-medium text-[color:var(--foreground)]'}
+      >
+        {value}
+      </dd>
+    </div>
+  )
+}
+
+function DashboardLoadingState() {
+  return (
+    <div className="grid gap-4 xl:grid-cols-4">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div
+          key={index}
+          className="h-40 animate-pulse rounded-[28px] border border-[color:var(--border)] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.04)]"
+        />
+      ))}
+    </div>
+  )
+}
+
+function DashboardErrorState({ message }: { message: string }) {
+  return (
+    <section className="rounded-[28px] border border-amber-200 bg-amber-50 px-6 py-5 text-sm leading-6 text-amber-800">
+      Dashboard summary is not available yet. The backend returned an error while
+      collecting Docker engine data.
+      <div className="mt-2 font-medium">{message}</div>
+    </section>
+  )
+}
+
+function formatBytes(bytes: number) {
+  if (bytes === 0) {
+    return '0 B'
+  }
+
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
+  const value = bytes / 1024 ** exponent
+  return `${value.toFixed(value >= 10 || exponent === 0 ? 0 : 1)} ${units[exponent]}`
+}
+
+function formatTimestamp(value: string) {
+  return value.replace('T', ' ').replace('Z', ' UTC')
 }

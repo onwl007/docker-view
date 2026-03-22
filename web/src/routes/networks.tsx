@@ -1,16 +1,11 @@
-import { Button } from '@/components/ui/button'
-import { ResourcePage } from '@/components/app/resource-page'
-import { networksPage } from '@/lib/mock-data'
+import { FeaturePlaceholder } from '@/components/app/feature-placeholder'
 
 export function NetworksPage() {
   return (
-    <ResourcePage
-      {...networksPage}
-      toolbar={
-        <Button variant="secondary" className="sm:min-w-36">
-          Create network
-        </Button>
-      }
+    <FeaturePlaceholder
+      title="Networks"
+      description="The networks workspace is planned for Phase 2 with driver, scope, attachment, and connected container views."
+      phase="Phase 2"
     />
   )
 }

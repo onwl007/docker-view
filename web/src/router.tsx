@@ -3,14 +3,16 @@ import {
   createRoute,
   createRouter,
 } from '@tanstack/react-router'
-import { queryOptions, type QueryClient } from '@tanstack/react-query'
-import { RootLayout } from '@/routes/root'
-import { DashboardPage } from '@/routes/dashboard'
+import type { QueryClient } from '@tanstack/react-query'
+import { systemSummaryQueryOptions } from '@/features/dashboard/query-options'
 import { ContainersPage } from '@/routes/containers'
+import { DashboardPage } from '@/routes/dashboard'
 import { ImagesPage } from '@/routes/images'
-import { VolumesPage } from '@/routes/volumes'
+import { MonitoringPage } from '@/routes/monitoring'
 import { NetworksPage } from '@/routes/networks'
-import { fetchHealth } from '@/lib/api/client'
+import { RootLayout } from '@/routes/root'
+import { SettingsPage } from '@/routes/settings'
+import { VolumesPage } from '@/routes/volumes'
 
 export interface RouterContext {
   queryClient: QueryClient
@@ -20,18 +22,11 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: RootLayout,
 })
 
-const dashboardQueryOptions = queryOptions({
-  queryKey: ['health'],
-  queryFn: fetchHealth,
-  staleTime: 30_000,
-  retry: false,
-})
-
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
   loader: async ({ context }) => {
-    await context.queryClient.prefetchQuery(dashboardQueryOptions)
+    await context.queryClient.prefetchQuery(systemSummaryQueryOptions)
   },
   component: DashboardPage,
 })
@@ -60,12 +55,26 @@ const networksRoute = createRoute({
   component: NetworksPage,
 })
 
+const monitoringRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/monitoring',
+  component: MonitoringPage,
+})
+
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings',
+  component: SettingsPage,
+})
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   containersRoute,
   imagesRoute,
   volumesRoute,
   networksRoute,
+  monitoringRoute,
+  settingsRoute,
 ])
 
 export const router = createRouter({
@@ -82,5 +91,3 @@ declare module '@tanstack/react-router' {
     router: typeof router
   }
 }
-
-export { dashboardQueryOptions }

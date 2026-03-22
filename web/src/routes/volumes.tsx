@@ -1,16 +1,11 @@
-import { Button } from '@/components/ui/button'
-import { ResourcePage } from '@/components/app/resource-page'
-import { volumesPage } from '@/lib/mock-data'
+import { FeaturePlaceholder } from '@/components/app/feature-placeholder'
 
 export function VolumesPage() {
   return (
-    <ResourcePage
-      {...volumesPage}
-      toolbar={
-        <Button variant="secondary" className="sm:min-w-36">
-          Create volume
-        </Button>
-      }
+    <FeaturePlaceholder
+      title="Volumes"
+      description="The volumes workspace is staged for Phase 2 and will expose storage inventory, ownership links, and lifecycle actions in later phases."
+      phase="Phase 2"
     />
   )
 }

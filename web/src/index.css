@@ -2,19 +2,21 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fffaf3;
-  --foreground: #1f1a17;
-  --muted-foreground: #6f6257;
-  --panel: rgba(255, 252, 247, 0.82);
-  --panel-strong: #f6ede1;
-  --border: rgba(112, 89, 69, 0.16);
-  --border-strong: rgba(112, 89, 69, 0.28);
-  --primary: #a14d2d;
-  --primary-strong: #8c3f22;
-  --primary-foreground: #fff7f0;
-  --ring: rgba(161, 77, 45, 0.35);
-  --accent-soft: rgba(234, 122, 74, 0.22);
-  --accent-softer: rgba(196, 155, 114, 0.18);
+  --app-background: #f3f5f9;
+  --background: #ffffff;
+  --surface: #f8fafc;
+  --foreground: #121826;
+  --sidebar-foreground: #364152;
+  --muted-foreground: #667085;
+  --panel: rgba(255, 255, 255, 0.9);
+  --panel-subtle: #f5f7fb;
+  --panel-strong: #eef2f7;
+  --border: rgba(15, 23, 42, 0.08);
+  --border-strong: rgba(15, 23, 42, 0.16);
+  --primary: #121826;
+  --primary-strong: #030712;
+  --primary-foreground: #ffffff;
+  --ring: rgba(52, 120, 246, 0.28);
   font-family: 'IBM Plex Sans', ui-sans-serif, sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -38,20 +40,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background:
-    linear-gradient(180deg, rgba(255, 250, 243, 0.96), rgba(255, 247, 239, 1));
-}
-
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(77, 54, 36, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(77, 54, 36, 0.025) 1px, transparent 1px);
-  background-size: 32px 32px;
-  mask-image: radial-gradient(circle at center, black, transparent 78%);
+  background: linear-gradient(180deg, #f7f9fc 0%, #eff3f8 100%);
 }
 
 a {
