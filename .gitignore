@@ -5,3 +5,4 @@ coverage/
 bin/
 web/node_modules/
 web/dist/
+.cache

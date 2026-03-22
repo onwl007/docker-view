@@ -30,7 +30,12 @@ func NewRootCommand() *cobra.Command {
 				return err
 			}
 
-			return app.New(cfg).Run(cmd.Context())
+			application, err := app.New(cfg)
+			if err != nil {
+				return err
+			}
+
+			return application.Run(cmd.Context())
 		},
 	}
 
