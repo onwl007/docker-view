@@ -1,32 +1,23 @@
 import js from '@eslint/js'
 import globals from 'globals'
-import pluginVue from 'eslint-plugin-vue'
-import vueParser from 'vue-eslint-parser'
+import reactHooks from 'eslint-plugin-react-hooks'
+import reactRefresh from 'eslint-plugin-react-refresh'
+import tseslint from 'typescript-eslint'
+import { defineConfig, globalIgnores } from 'eslint/config'
 
-export default [
+export default defineConfig([
+  globalIgnores(['dist']),
   {
-    ignores: ['dist/**', 'coverage/**', '**/*.d.ts'],
-  },
-  js.configs.recommended,
-  ...pluginVue.configs['flat/recommended'],
-  {
-    files: ['**/*.{js,ts,vue}'],
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      js.configs.recommended,
+      tseslint.configs.recommended,
+      reactHooks.configs.flat.recommended,
+      reactRefresh.configs.vite,
+    ],
     languageOptions: {
-      globals: {
-        ...globals.browser,
-        ...globals.node,
-      },
-      parser: vueParser,
-      parserOptions: {
-        ecmaVersion: 'latest',
-        sourceType: 'module',
-      },
-    },
-    rules: {
-      'vue/multi-word-component-names': 'off',
-      'vue/max-attributes-per-line': 'off',
-      'vue/html-self-closing': 'off',
-      'vue/singleline-html-element-content-newline': 'off',
+      ecmaVersion: 2020,
+      globals: globals.browser,
     },
   },
-]
+])

@@ -5,7 +5,7 @@
 This repository is for a web application that manages containers on Linux servers through a browser.
 
 Core goals:
-- Use a modern frontend stack based on Vue 3.
+- Use a modern frontend stack based on React.
 - Use Go as the primary backend runtime.
 - Manage Linux container workloads from the web UI.
 - Keep the repository structure close to the Go community `project-layout` conventions where that helps clarity.
@@ -13,7 +13,7 @@ Core goals:
 - Keep the architecture pragmatic, deployable, and maintainable.
 
 Primary technical direction:
-- Frontend: Vue 3, Vite, TypeScript, `pnpm`.
+- Frontend: React, Vite, TypeScript, TanStack Router, TanStack Query, Tailwind CSS, shadcn/ui, `pnpm`.
 - Backend: Go, Cobra, Viper.
 - Target environment: Linux servers.
 
@@ -59,13 +59,16 @@ Rules:
 
 ## Frontend Rules
 
-- Use Vue 3 with the Composition API.
-- Prefer `script setup` for single-file components unless a clear exception exists.
+- Use React with modern function components and hooks.
+- Use TanStack Router for routing and route-level data loading.
+- Use TanStack Query for server-state fetching, caching, invalidation, and mutations.
+- Use Tailwind CSS for styling primitives and design tokens.
+- Use shadcn/ui as the base component system and customize it for the product domain.
 - Use `pnpm` only inside `web/`.
 - Prefer strict TypeScript settings.
-- Keep component logic out of templates.
-- Keep state management minimal. Add Pinia only when shared state justifies it.
-- Frontend code style must align with Vue 3 official recommended practices.
+- Keep rendering components focused on presentation and move API, query, and state orchestration into clear modules.
+- Keep client state management minimal. Prefer TanStack Query for server state and add other state libraries only when shared client state clearly justifies it.
+- Frontend code style must align with current React and TanStack recommended practices.
 
 ## Backend Rules
 
@@ -99,6 +102,7 @@ Rules:
 When changing this repository:
 - Keep folder boundaries clean.
 - Prefer incremental changes over broad speculative abstractions.
+- When library or API documentation, code generation, project scaffolding, or configuration steps are needed, always use Context7 MCP by default without waiting for an explicit user instruction.
 - Update `README.md` when the project structure or startup flow changes.
 - Document operational assumptions in `docs/`.
 - Add tests for backend business logic and critical frontend behavior.
@@ -113,6 +117,6 @@ A change is not complete unless:
 - Build and run instructions still make sense.
 - Security-sensitive behavior is called out explicitly.
 - Go changes follow `Effective Go`.
-- Frontend changes follow Vue 3 official recommended practices.
+- Frontend changes follow current React and TanStack recommended practices.
 - Feature work includes complete unit test coverage and execution for both frontend and backend parts affected by the change.
 - Relevant `lint`, static analysis, and other applicable code validation checks have been run and pass for the affected frontend and backend code.

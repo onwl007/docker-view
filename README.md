@@ -15,9 +15,13 @@ The repository now follows a Go-first structure inspired by [`golang-standards/p
 
 ### Frontend
 
-- Vue 3
+- React
 - Vite
 - TypeScript
+- TanStack Router
+- TanStack Query
+- Tailwind CSS
+- shadcn/ui
 - `pnpm`
 
 ## Repository Layout
@@ -36,7 +40,7 @@ The repository now follows a Go-first structure inspired by [`golang-standards/p
 ├─ docs/                   # design and ops docs
 ├─ scripts/                # development scripts
 ├─ test/                   # integration/e2e test assets
-└─ web/                    # standalone Vue frontend
+└─ web/                    # standalone React frontend
 ```
 
 ## Configuration Precedence
@@ -135,9 +139,9 @@ The repository contains:
 - Cobra and Viper wiring in [internal/cli/root.go](/Users/wanglei/workspace/workspace-github/docker-view/internal/cli/root.go)
 - configuration defaults in [internal/config/config.go](/Users/wanglei/workspace/workspace-github/docker-view/internal/config/config.go)
 - a minimal HTTP server with a health endpoint in [internal/http/server.go](/Users/wanglei/workspace/workspace-github/docker-view/internal/http/server.go)
-- a standalone Vue app scaffold in [web/package.json](/Users/wanglei/workspace/workspace-github/docker-view/web/package.json)
+- a standalone React app scaffold in [web/package.json](/Users/wanglei/workspace/workspace-github/docker-view/web/package.json)
 
 Next steps:
 1. Add real `/api/v1` handlers for hosts, containers, images, logs, and audit records.
-2. Expand the web app with routing, typed API calls, and stateful pages.
+2. Expand the web app with TanStack Router, TanStack Query, typed API calls, Tailwind CSS, and shadcn/ui-based pages.
 3. Add deployment assets under `deployments/`.
