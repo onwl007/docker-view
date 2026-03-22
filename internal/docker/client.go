@@ -2,12 +2,9 @@ package docker
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net"
-	"net/http"
-	"net/url"
-	"time"
+
+	mobyclient "github.com/moby/moby/client"
 )
 
 type Summary struct {
@@ -30,180 +27,62 @@ type Gateway interface {
 }
 
 type Client struct {
-	baseURL    string
-	httpClient *http.Client
 	dockerHost string
+	client     *mobyclient.Client
 }
 
 func NewClient(host string) (*Client, error) {
-	parsed, err := url.Parse(host)
+	cli, err := mobyclient.NewClientWithOpts(
+		mobyclient.WithHost(host),
+		mobyclient.WithAPIVersionNegotiation(),
+	)
 	if err != nil {
-		return nil, fmt.Errorf("parse docker host: %w", err)
-	}
-
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	baseURL := host
-
-	switch parsed.Scheme {
-	case "unix":
-		socketPath := parsed.Path
-		transport.DialContext = func(ctx context.Context, _, _ string) (net.Conn, error) {
-			var dialer net.Dialer
-			return dialer.DialContext(ctx, "unix", socketPath)
-		}
-		baseURL = "http://docker"
-	case "tcp":
-		baseURL = "http://" + parsed.Host
-	case "http", "https":
-		baseURL = host
-	default:
-		return nil, fmt.Errorf("unsupported docker host scheme %q", parsed.Scheme)
+		return nil, fmt.Errorf("create docker sdk client: %w", err)
 	}
 
 	return &Client{
-		baseURL: baseURL,
-		httpClient: &http.Client{
-			Timeout:   5 * time.Second,
-			Transport: transport,
-		},
 		dockerHost: host,
+		client:     cli,
 	}, nil
 }
 
 func (c *Client) Summary(ctx context.Context) (Summary, error) {
-	if err := c.ping(ctx); err != nil {
+	if _, err := c.client.Ping(ctx, mobyclient.PingOptions{NegotiateAPIVersion: true}); err != nil {
 		return Summary{}, err
 	}
 
-	info, err := c.info(ctx)
+	info, err := c.client.Info(ctx, mobyclient.InfoOptions{})
 	if err != nil {
 		return Summary{}, err
 	}
 
-	version, err := c.version(ctx)
+	version, err := c.client.ServerVersion(ctx, mobyclient.ServerVersionOptions{})
 	if err != nil {
 		return Summary{}, err
 	}
 
-	volumes, err := c.volumeCount(ctx)
+	volumes, err := c.client.VolumeList(ctx, mobyclient.VolumeListOptions{})
 	if err != nil {
 		return Summary{}, err
 	}
 
-	networks, err := c.networkCount(ctx)
+	networks, err := c.client.NetworkList(ctx, mobyclient.NetworkListOptions{})
 	if err != nil {
 		return Summary{}, err
 	}
 
 	return Summary{
 		DockerHost:        c.dockerHost,
-		HostName:          info.Name,
+		HostName:          info.Info.Name,
 		DockerVersion:     version.Version,
 		APIVersion:        version.APIVersion,
-		ContainersTotal:   info.Containers,
-		ContainersRunning: info.ContainersRunning,
-		ContainersStopped: info.ContainersStopped,
-		ImagesTotal:       info.Images,
-		VolumesTotal:      volumes,
-		NetworksTotal:     networks,
-		CPUCores:          info.NCPU,
-		MemoryBytes:       info.MemTotal,
+		ContainersTotal:   info.Info.Containers,
+		ContainersRunning: info.Info.ContainersRunning,
+		ContainersStopped: info.Info.ContainersStopped,
+		ImagesTotal:       info.Info.Images,
+		VolumesTotal:      len(volumes.Items),
+		NetworksTotal:     len(networks.Items),
+		CPUCores:          info.Info.NCPU,
+		MemoryBytes:       info.Info.MemTotal,
 	}, nil
-}
-
-func (c *Client) ping(ctx context.Context) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/_ping", nil)
-	if err != nil {
-		return fmt.Errorf("build ping request: %w", err)
-	}
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("ping docker engine: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("ping docker engine: unexpected status %d", resp.StatusCode)
-	}
-
-	return nil
-}
-
-func (c *Client) info(ctx context.Context) (systemInfoResponse, error) {
-	var payload systemInfoResponse
-	if err := c.getJSON(ctx, "/info", &payload); err != nil {
-		return systemInfoResponse{}, err
-	}
-	return payload, nil
-}
-
-func (c *Client) version(ctx context.Context) (versionResponse, error) {
-	var payload versionResponse
-	if err := c.getJSON(ctx, "/version", &payload); err != nil {
-		return versionResponse{}, err
-	}
-	return payload, nil
-}
-
-func (c *Client) volumeCount(ctx context.Context) (int, error) {
-	var payload volumeListResponse
-	if err := c.getJSON(ctx, "/volumes", &payload); err != nil {
-		return 0, err
-	}
-	return len(payload.Volumes), nil
-}
-
-func (c *Client) networkCount(ctx context.Context) (int, error) {
-	var payload []networkResponse
-	if err := c.getJSON(ctx, "/networks", &payload); err != nil {
-		return 0, err
-	}
-	return len(payload), nil
-}
-
-func (c *Client) getJSON(ctx context.Context, path string, target any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
-	if err != nil {
-		return fmt.Errorf("build request %q: %w", path, err)
-	}
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("request %q: %w", path, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("request %q: unexpected status %d", path, resp.StatusCode)
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(target); err != nil {
-		return fmt.Errorf("decode %q response: %w", path, err)
-	}
-
-	return nil
-}
-
-type systemInfoResponse struct {
-	Name              string `json:"Name"`
-	Containers        int    `json:"Containers"`
-	ContainersRunning int    `json:"ContainersRunning"`
-	ContainersStopped int    `json:"ContainersStopped"`
-	Images            int    `json:"Images"`
-	NCPU              int    `json:"NCPU"`
-	MemTotal          int64  `json:"MemTotal"`
-}
-
-type versionResponse struct {
-	Version    string `json:"Version"`
-	APIVersion string `json:"ApiVersion"`
-}
-
-type volumeListResponse struct {
-	Volumes []json.RawMessage `json:"Volumes"`
-}
-
-type networkResponse struct {
-	ID string `json:"Id"`
 }
