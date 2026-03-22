@@ -72,6 +72,10 @@
 - 容器、镜像、卷、网络数量
 - Compose 项目数量
 
+### `GET /api/v1/system/health`
+
+返回后端服务、Docker Engine 和关键依赖的连通状态。
+
 ## 3.2 Containers
 
 ### `GET /api/v1/containers`
@@ -254,31 +258,41 @@ SSE 日志流接口。
 
 - `force`
 
+### `POST /api/v1/images/prune`
+
+清理未使用镜像。
+
 ## 3.6 Volumes
 
 ### `GET /api/v1/volumes`
 
 返回卷列表。
 
+支持参数：
+
+- `name`
+- `dangling`
+
 ### `GET /api/v1/volumes/{name}`
 
-返回卷详情及关联容器摘要。
+返回卷详情与关联容器。
 
 ### `POST /api/v1/volumes`
 
-请求体：
+请求体建议：
 
 ```json
 {
-  "name": "app-data",
-  "driver": "local",
+  "name": "postgres_data",
   "labels": {}
 }
 ```
 
 ### `DELETE /api/v1/volumes/{name}`
 
-删除卷。
+支持：
+
+- `force`
 
 ## 3.7 Networks
 
@@ -286,20 +300,26 @@ SSE 日志流接口。
 
 返回网络列表。
 
+支持参数：
+
+- `name`
+- `driver`
+- `scope`
+
 ### `GET /api/v1/networks/{id}`
 
-返回网络详情及关联容器。
+返回网络详情与关联容器。
 
 ### `POST /api/v1/networks`
 
-请求体：
+请求体建议：
 
 ```json
 {
-  "name": "app-net",
+  "name": "frontend_net",
   "driver": "bridge",
-  "internal": false,
   "attachable": false,
+  "internal": false,
   "labels": {}
 }
 ```
@@ -308,42 +328,95 @@ SSE 日志流接口。
 
 删除网络。
 
-## 3.8 Compose Projects
+## 3.8 Monitoring
+
+### `GET /api/v1/monitoring/host`
+
+返回主机资源摘要：
+
+- `cpu`
+- `memory`
+- `disk`
+- `network`
+- `sampledAt`
+
+### `GET /api/v1/monitoring/containers`
+
+返回运行中容器资源快照列表。
+
+支持参数：
+
+- `name`
+- `status`
+- `limit`
+
+## 3.9 Settings
+
+### `GET /api/v1/settings`
+
+返回当前配置摘要和可编辑设置。
+
+返回建议包含：
+
+- `docker`
+- `security`
+- `notifications`
+- `appearance`
+- `meta.requiresRestartFields`
+
+### `POST /api/v1/settings/validate`
+
+校验设置请求体，返回字段级校验结果。
+
+### `PUT /api/v1/settings`
+
+保存可编辑设置。
+
+响应建议：
+
+```json
+{
+  "data": {
+    "success": true,
+    "requiresRestart": true
+  }
+}
+```
+
+## 3.10 Compose
 
 ### `GET /api/v1/compose/projects`
 
 返回 Compose 项目列表。
 
-每个项目建议字段：
-
-- `name`
-- `status`
-- `workingDir`
-- `configFiles`
-- `containerCount`
-- `services`
-
 ### `GET /api/v1/compose/projects/{name}`
 
-返回项目详情和关联资源。
+返回项目详情和关联容器、网络、卷信息。
 
-### `POST /api/v1/compose/projects/{name}/up`
+### `POST /api/v1/compose/projects/{name}/start`
 
-启动或拉起项目。
+启动项目。
 
-### `POST /api/v1/compose/projects/{name}/down`
+### `POST /api/v1/compose/projects/{name}/stop`
 
-停止或下线项目。
-
-### `POST /api/v1/compose/projects/{name}/restart`
-
-重启项目内服务。
+停止项目。
 
 ### `POST /api/v1/compose/projects/{name}/recreate`
 
-重建项目容器。
+重建项目。
 
-## 4. 状态码约定
+### `DELETE /api/v1/compose/projects/{name}`
+
+删除项目及其关联资源，具体删除策略必须受请求参数控制。
+
+## 4. 前端协作约定
+
+- 列表页的搜索、筛选、分页参数应映射为 query string
+- 列表和详情接口返回字段命名统一使用 `camelCase`
+- Dashboard 写操作涉及资源数量变化时，前端应失效 `system/summary`
+- 日志流和终端会话不进入 Query Cache
+
+## 5. 状态码约定
 
 - `200 OK`：成功查询或动作执行成功
 - `201 Created`：资源或会话创建成功
@@ -353,7 +426,7 @@ SSE 日志流接口。
 - `500 Internal Server Error`：系统内部错误
 - `502 Bad Gateway`：Docker Engine 调用失败或不可达
 
-## 5. 典型错误码
+## 6. 典型错误码
 
 - `docker_unavailable`
 - `container_not_found`
@@ -366,9 +439,15 @@ SSE 日志流接口。
 - `terminal_session_closed`
 - `operation_conflict`
 
-## 6. 实现约束
+## 7. 实现约束
 
 - API 返回字段命名保持稳定，不直接透传 Docker SDK 原始结构
 - Docker 原始字段过多时，应做后端视图模型裁剪
 - 所有写操作预留审计钩子
 - WebSocket 和 SSE 接口要有明确的关闭语义和错误事件语义
+
+## 8. 与其他文档关系
+
+- 更完整的交互契约见 `integration.md`
+- 前端页面与路由设计见 `frontend-design.md`
+- 后端模块与服务职责见 `backend-design.md`

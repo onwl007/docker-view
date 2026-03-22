@@ -9,6 +9,7 @@ docker-view 采用单体部署架构，由以下部分组成：
 - Docker Engine 访问层
 - 实时通道层
 - 配置、审计与日志支撑层
+- 前后端交互契约层
 
 逻辑架构如下：
 
@@ -78,6 +79,11 @@ Docker Engine API (unix socket / tcp)
   - Docker SDK 适配实现
   - 类型转换
   - 流式会话封装
+
+- `internal/realtime`
+  - SSE 编码
+  - WebSocket 消息协议
+  - 会话生命周期管理
 
 - `internal/config`
   - 配置加载
@@ -176,6 +182,8 @@ SSE 只用于容器日志持续输出：
 - `images`
 - `volumes`
 - `networks`
+- `monitoring`
+- `settings`
 - `compose`
 - `logs`
 - `terminal`
@@ -200,6 +208,10 @@ SSE 只用于容器日志持续输出：
 
 - `lib/query/`
   - TanStack Query 的 query key、query option 和缓存策略约定
+
+- `lib/realtime/`
+  - SSE 客户端封装
+  - WebSocket 会话封装
 
 前端职责：
 
@@ -226,6 +238,15 @@ SSE 只用于容器日志持续输出：
 - Tailwind CSS 负责主题 token、布局和状态样式，避免在业务组件中堆积零散内联样式
 - 表格、表单、抽屉、对话框、命令确认等后台高频交互优先复用统一组件模式
 - 组件定制应以容器管理场景为中心，避免仅为视觉抽象引入额外复杂度
+
+更细的页面设计、路由与组件拆分见 `frontend-design.md`。
+
+## 6.3 前后端协作边界
+
+- 前端只消费稳定 DTO，不感知 Docker SDK 类型
+- REST 数据进入 TanStack Query，SSE/WS 走独立会话层
+- 列表筛选状态优先映射到 URL Search Params
+- 设置页与监控页作为独立领域，不混入系统总览页实现
 
 ## 7. 审计与可观测性
 
@@ -258,6 +279,8 @@ SSE 只用于容器日志持续输出：
 - `internal/docker` 通过接口 mock 验证正常路径、异常路径和边界条件
 - `internal/http` 应覆盖请求解析、状态码、错误体和流式入口行为
 - 容器、镜像、卷、网络、Compose、日志、终端等每个功能域都必须有独立测试用例
+
+更细的后端模块职责见 `backend-design.md`，前后端契约见 `integration.md`。
 
 ### 8.2 前端测试要求
 
