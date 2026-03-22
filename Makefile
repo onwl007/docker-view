@@ -8,6 +8,8 @@ BIN_DIR := $(BUILD_DIR)/bin
 DIST_DIR := $(BUILD_DIR)/dist
 RELEASE_ROOT := $(BUILD_DIR)/release
 PKG_NAME := github.com/wanglei/docker-view/pkg/version
+CACHE_DIR := .cache
+GO_CACHE_DIR := $(CURDIR)/$(CACHE_DIR)/go-build
 
 GO ?= go
 PNPM ?= pnpm
@@ -17,17 +19,24 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 BUILD_DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 CONFIG ?= ./configs/config.example.yaml
+VITE_HOST ?= 0.0.0.0
 
 LDFLAGS := -X '$(PKG_NAME).version=$(VERSION)' -X '$(PKG_NAME).commit=$(COMMIT)' -X '$(PKG_NAME).date=$(BUILD_DATE)'
 RELEASE_NAME := $(APP_NAME)_$(VERSION)_$(GOOS)_$(GOARCH)
 RELEASE_DIR := $(RELEASE_ROOT)/$(RELEASE_NAME)
 
-.PHONY: help debug debug-build build build-backend build-frontend test test-backend test-frontend lint lint-backend lint-frontend typecheck release clean
+export GOCACHE := $(GO_CACHE_DIR)
+
+.PHONY: help dev dev-backend dev-frontend install-frontend debug debug-build build build-backend build-frontend test test-backend test-frontend lint lint-backend lint-frontend typecheck release clean prepare-cache
 
 help:
 	@printf "%s\n" \
 		"Available targets:" \
-		"  make debug          Run backend in debug-friendly mode" \
+		"  make dev            Run backend debug server and Vite dev server together" \
+		"  make dev-backend    Run backend in debug-friendly mode" \
+		"  make dev-frontend   Run the Vite dev server" \
+		"  make install-frontend Install frontend dependencies with pnpm" \
+		"  make debug          Alias of make dev-backend" \
 		"  make debug-build    Build backend with debug symbols" \
 		"  make build          Build frontend and backend artifacts" \
 		"  make test           Run backend and frontend unit tests" \
@@ -35,10 +44,26 @@ help:
 		"  make release        Produce release package with binary and web assets" \
 		"Variables:" \
 		"  CONFIG=./configs/config.example.yaml" \
+		"  VITE_HOST=0.0.0.0" \
 		"  VERSION=<version> GOOS=<target-os> GOARCH=<target-arch>"
 
-debug:
+dev: prepare-cache
+	@set -e; \
+	trap 'kill 0 2>/dev/null || true' INT TERM EXIT; \
+	$(MAKE) --no-print-directory dev-backend & \
+	$(MAKE) --no-print-directory dev-frontend & \
+	wait
+
+dev-backend: prepare-cache
 	$(GO) run -gcflags=all=-N\ -l $(CMD_PATH) --config $(CONFIG)
+
+dev-frontend:
+	cd $(WEB_DIR) && $(PNPM) dev --host $(VITE_HOST)
+
+install-frontend:
+	cd $(WEB_DIR) && $(PNPM) install
+
+debug: dev-backend
 
 debug-build: $(BIN_DIR)
 	$(GO) build -gcflags=all=-N\ -l -o $(BIN_DIR)/$(APP_NAME)-debug $(CMD_PATH)
@@ -78,7 +103,10 @@ release: clean build-frontend test lint $(RELEASE_DIR)
 	tar -C $(RELEASE_ROOT) -czf $(DIST_DIR)/$(RELEASE_NAME).tar.gz $(RELEASE_NAME)
 
 clean:
-	rm -rf $(BIN_DIR) $(DIST_DIR) $(RELEASE_ROOT)
+	rm -rf $(BIN_DIR) $(DIST_DIR) $(RELEASE_ROOT) $(CACHE_DIR)
+
+prepare-cache:
+	mkdir -p $(GO_CACHE_DIR)
 
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)

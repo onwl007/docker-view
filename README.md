@@ -68,6 +68,16 @@ An example config file lives at [configs/config.example.yaml](/Users/wanglei/wor
 
 ## Development
 
+### Full project
+
+Start the backend debugger-friendly server and the Vite frontend together:
+
+```bash
+make dev
+```
+
+This is the recommended local workflow for Phase 1 and later frontend/backend integration work.
+
 ### Backend
 
 Run the server:
@@ -79,13 +89,13 @@ go run ./cmd/docker-view --config ./configs/config.example.yaml
 Run the backend in debug-friendly mode:
 
 ```bash
-make debug
+make dev-backend
 ```
 
 Run unit tests:
 
 ```bash
-go test ./...
+make test-backend
 ```
 
 ### Frontend
@@ -93,24 +103,21 @@ go test ./...
 Install dependencies:
 
 ```bash
-cd web
-pnpm install
+make install-frontend
 ```
 
 Run the dev server:
 
 ```bash
-cd web
-pnpm dev
+make dev-frontend
 ```
 
 Run checks:
 
 ```bash
-cd web
-pnpm lint
-pnpm test
-pnpm typecheck
+make test-frontend
+make lint-frontend
+make typecheck
 ```
 
 ## Makefile
@@ -118,6 +125,9 @@ pnpm typecheck
 The repository now includes a root [Makefile](/Users/wanglei/workspace/workspace-github/docker-view/Makefile) for common workflows:
 
 ```bash
+make dev
+make dev-backend
+make dev-frontend
 make debug
 make debug-build
 make test
@@ -127,10 +137,15 @@ make release
 ```
 
 Notes:
-- `make debug` starts the Go service with `-gcflags=all=-N -l` and uses `CONFIG=./configs/config.example.yaml` by default.
+- `make dev` starts the Go backend and Vite dev server together and stops both when you exit.
+- `make dev-backend` starts the Go service with `-gcflags=all=-N -l` and uses `CONFIG=./configs/config.example.yaml` by default.
+- `make dev-frontend` starts the Vite dev server on `VITE_HOST` and uses the built-in proxy to forward `/healthz` and `/api/*` to `http://localhost:8080`.
+- `make debug` is kept as an alias of `make dev-backend`.
+- Make targets use a repository-local Go build cache under `.cache/go-build`, which makes local test and debug flows more predictable.
 - `make build` generates the frontend bundle and the backend binary under `build/bin/`.
 - `make release` runs frontend build, backend/frontend tests, lint, typecheck, then creates a versioned tarball under `build/dist/`.
 - Release metadata can be overridden with `VERSION`, `GOOS`, `GOARCH`, `COMMIT`, and `BUILD_DATE`.
+- Useful overrides: `CONFIG=./configs/config.example.yaml` and `VITE_HOST=0.0.0.0`.
 
 ## Current Status
 
