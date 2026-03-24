@@ -11,6 +11,7 @@
 - `security.md`：安全边界、审计和风险控制
 - `testing.md`：测试策略、覆盖率门槛和功能测试要求
 - `quality-gates.md`：CI、覆盖率和合并门禁要求
+- `deployment.md`：Docker 与 systemd 的最小部署方式
 - `roadmap.md`：分阶段实施路线图
 
 推荐阅读顺序：
@@ -24,6 +25,7 @@
 7. `security.md`
 8. `testing.md`
 9. `quality-gates.md`
-10. `roadmap.md`
+10. `deployment.md`
+11. `roadmap.md`
 
 这些文档以设计为主，同时在部分文档中补充当前实现进度说明，便于把阶段目标与实际代码状态对齐。

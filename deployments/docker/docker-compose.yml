@@ -1,0 +1,17 @@
+services:
+  docker-view:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile
+    image: docker-view:local
+    container_name: docker-view
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ../../configs/config.example.yaml:/opt/docker-view/config.yaml:ro
+    environment:
+      DOCKER_VIEW_HTTP_ADDR: ":8080"
+      DOCKER_VIEW_DOCKER_HOST: "unix:///var/run/docker.sock"
+      DOCKER_VIEW_WEB_DIR: "/opt/docker-view/web-dist"

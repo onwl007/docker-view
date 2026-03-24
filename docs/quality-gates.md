@@ -99,6 +99,11 @@
 
 这些检查可以作为增强项，但不能替代前后端单元测试门禁。
 
+当前实现状态：
+
+- 已提供 GitHub Actions workflow，覆盖 backend test/vet、frontend lint/typecheck/test/build 和 `make release` smoke
+- 覆盖率门槛尚未被 CI 硬性校验，当前仍以文档门禁为主
+
 ## 6. 功能完成定义
 
 功能完成必须同时满足以下条件：

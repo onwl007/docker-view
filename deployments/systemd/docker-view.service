@@ -1,0 +1,25 @@
+[Unit]
+Description=docker-view web console
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/docker-view
+ExecStart=/opt/docker-view/docker-view --config /etc/docker-view/config.yaml
+Restart=on-failure
+RestartSec=5s
+Environment=DOCKER_VIEW_HTTP_ADDR=:8080
+Environment=DOCKER_VIEW_DOCKER_HOST=unix:///var/run/docker.sock
+Environment=DOCKER_VIEW_WEB_DIR=/opt/docker-view/web-dist
+User=docker-view
+Group=docker-view
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/docker-view
+
+[Install]
+WantedBy=multi-user.target
