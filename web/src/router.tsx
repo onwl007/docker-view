@@ -5,6 +5,7 @@ import {
 } from '@tanstack/react-router'
 import type { QueryClient } from '@tanstack/react-query'
 import { systemSummaryQueryOptions } from '@/features/dashboard/query-options'
+import { auditEventsQueryOptions } from '@/features/audit/query-options'
 import {
   composeProjectDetailQueryOptions,
 } from '@/features/compose/query-options'
@@ -17,6 +18,7 @@ import {
 } from '@/features/resources/query-options'
 import { settingsQueryOptions } from '@/features/settings/query-options'
 import { validateTextSearch } from '@/lib/search'
+import { AuditPage } from '@/routes/audit'
 import { ComposeProjectDetailPage } from '@/routes/compose-project'
 import { ComposeProjectsPage } from '@/routes/compose'
 import { ContainerLogsPage } from '@/routes/container-logs'
@@ -120,6 +122,17 @@ const monitoringRoute = createRoute({
   component: MonitoringPage,
 })
 
+const auditRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/audit',
+  validateSearch: validateTextSearch,
+  loader: async ({ context, location }) => {
+    const params = new URLSearchParams(location.search)
+    await context.queryClient.prefetchQuery(auditEventsQueryOptions(params.get('q') ?? undefined))
+  },
+  component: AuditPage,
+})
+
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings',
@@ -140,6 +153,7 @@ const routeTree = rootRoute.addChildren([
   composeRoute,
   composeProjectRoute,
   monitoringRoute,
+  auditRoute,
   settingsRoute,
 ])
 

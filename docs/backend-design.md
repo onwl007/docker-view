@@ -537,7 +537,9 @@ WebSocket 适用于：
 - 已实现容器启停删重启审计
 - 已实现镜像拉取、删除、prune 审计
 - 已实现卷和网络创建删除审计
-- compose、terminal、settings 相关审计未实现
+- 已实现 Compose 项目操作审计
+- 已实现终端会话创建审计
+- 已实现设置保存审计
 
 ### 11.2 审计字段建议
 
@@ -554,7 +556,8 @@ WebSocket 适用于：
 当前实现状态：
 
 - 当前 recorder 已记录 `event_type`、`target_type`、`target_id`、`action`、`actor`、`source`、`result`、`details`
-- `event_id`、独立持久化存储与查询接口仍未实现
+- 已实现内存态存储和查询/导出接口
+- `event_id` 和独立持久化存储仍未实现
 
 ### 11.3 认证接入点
 
@@ -564,6 +567,12 @@ WebSocket 适用于：
 - request context 中的 actor 信息
 - WebSocket 握手身份继承
 - SSE 订阅身份继承
+
+当前实现状态：
+
+- 已实现基于静态 token 的 HTTP 敏感接口鉴权中间件
+- request context 中已写入 actor、source、user agent 供审计消费
+- WebSocket / SSE 的更细粒度收口仍待补齐
 
 ## 12. 可测试性设计
 

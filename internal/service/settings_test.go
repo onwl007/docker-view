@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/wanglei/docker-view/internal/audit"
 	"github.com/wanglei/docker-view/internal/config"
 	"github.com/wanglei/docker-view/internal/docker"
 )
@@ -11,7 +12,7 @@ import (
 func TestSettingsValidateRejectsInvalidValues(t *testing.T) {
 	service := NewSettingsService(config.Config{
 		Docker: config.DockerConfig{Host: "unix:///var/run/docker.sock"},
-	}, stubSettingsGateway{}).(*settingsService)
+	}, stubSettingsGateway{}, audit.NewNopRecorder()).(*settingsService)
 
 	validation := service.Validate(context.Background(), SettingsState{
 		Docker: DockerSettings{
@@ -46,7 +47,7 @@ func TestSettingsSavePersistsDraft(t *testing.T) {
 			StorageDriver:   "overlay2",
 			CgroupDriver:    "systemd",
 		},
-	})
+	}, audit.NewNopRecorder())
 
 	result, err := service.Save(context.Background(), SettingsState{
 		Docker: DockerSettings{

@@ -312,7 +312,7 @@ Query 策略建议：
 - `not_found`：资源已不存在，提示刷新
 - `conflict`：资源状态冲突，提示用户当前状态
 - `docker_unavailable`：顶部全局错误横幅
-- `unauthorized` / `forbidden`：预留认证接入后的跳转与提示
+- `unauthorized` / `forbidden`：触发全局未授权横幅，并提示用户检查 token 或网关鉴权
 - `internal_error`：通用错误提示
 
 ## 9. DTO 设计原则

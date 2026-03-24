@@ -1,3 +1,5 @@
+import { clearUnauthorized, markUnauthorized } from '@/lib/session'
+
 export interface ApiSuccess<T> {
   data: T
 }
@@ -163,6 +165,18 @@ export interface MonitoringContainer {
   pids: number
 }
 
+export interface AuditEvent {
+  eventType: string
+  targetType: string
+  targetId: string
+  action: string
+  actor: string
+  source: string
+  result: string
+  timestamp: string
+  details?: Record<string, unknown>
+}
+
 export interface ComposeProjectListItem {
   name: string
   status: 'running' | 'stopped' | 'partial' | 'inactive'
@@ -249,6 +263,19 @@ interface ApiErrorPayload {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
+const API_AUTH_TOKEN = import.meta.env.VITE_API_AUTH_TOKEN ?? ''
+
+export class ApiError extends Error {
+  code?: string
+  status: number
+
+  constructor(message: string, status: number, code?: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.code = code
+  }
+}
 
 export function buildApiUrl(path: string) {
   if (!API_BASE_URL) {
@@ -319,6 +346,50 @@ export async function fetchNetworks(query?: string): Promise<ListResult<NetworkL
 
 export async function fetchMonitoringHost(): Promise<MonitoringHost> {
   return requestObject<MonitoringHost>('/api/v1/monitoring/host')
+}
+
+export async function fetchAuditEvents(filters: {
+  q?: string
+  targetType?: string
+  action?: string
+  result?: string
+  limit?: number
+} = {}): Promise<ListResult<AuditEvent>> {
+  return requestList<AuditEvent>('/api/v1/audit/events', filters)
+}
+
+export function buildAuditEventsExportUrl(filters: {
+  q?: string
+  targetType?: string
+  action?: string
+  result?: string
+} = {}) {
+  const search = buildSearchParams(filters)
+  return buildApiUrl(`/api/v1/audit/events/export${search ? `?${search}` : ''}`)
+}
+
+export async function downloadAuditEvents(filters: {
+  q?: string
+  targetType?: string
+  action?: string
+  result?: string
+} = {}) {
+  const response = await fetch(buildAuditEventsExportUrl(filters), {
+    headers: buildHeaders(false),
+  })
+  if (!response.ok) {
+    throw await readApiError(response)
+  }
+
+  const blob = await response.blob()
+  const href = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = href
+  anchor.download = 'audit-events.ndjson'
+  document.body.append(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(href)
 }
 
 export async function fetchComposeProjects(query?: string): Promise<ListResult<ComposeProjectListItem>> {
@@ -470,16 +541,15 @@ async function requestObject<T>(
     // Keep relative paths in tests and dev proxy setups.
     // buildApiUrl would turn these into absolute URLs.
     method: options?.method ?? 'GET',
-    headers: {
-      Accept: 'application/json',
-      ...(options?.body ? { 'Content-Type': 'application/json' } : {}),
-    },
+    headers: buildHeaders(options?.body !== undefined),
     body: options?.body ? JSON.stringify(options.body) : undefined,
   })
 
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response))
+    throw await readApiError(response)
   }
+
+  clearUnauthorized()
 
   const payload = (await response.json()) as ApiSuccess<T>
   return payload.data
@@ -492,14 +562,14 @@ async function requestList<T>(
   const search = buildSearchParams(query)
   const suffix = search ? `?${search}` : ''
   const response = await fetch(`${API_BASE_URL}${path}${suffix}`, {
-    headers: {
-      Accept: 'application/json',
-    },
+    headers: buildHeaders(false),
   })
 
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response))
+    throw await readApiError(response)
   }
+
+  clearUnauthorized()
 
   const payload = (await response.json()) as ApiListSuccess<T>
   return {
@@ -520,19 +590,26 @@ async function requestAction(
   const suffix = search ? `?${search}` : ''
   const response = await fetch(`${API_BASE_URL}${path}${suffix}`, {
     method: options.method,
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
+    headers: buildHeaders(true),
     body: options.body ? JSON.stringify(options.body) : undefined,
   })
 
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response))
+    throw await readApiError(response)
   }
+
+  clearUnauthorized()
 
   const payload = (await response.json()) as ApiSuccess<ActionSuccess>
   return payload.data
+}
+
+function buildHeaders(hasBody: boolean): HeadersInit {
+  return {
+    Accept: 'application/json',
+    ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
+    ...(API_AUTH_TOKEN ? { Authorization: `Bearer ${API_AUTH_TOKEN}` } : {}),
+  }
 }
 
 function buildSearchParams(query?: Record<string, string | number | boolean | undefined>) {
@@ -551,15 +628,27 @@ function buildSearchParams(query?: Record<string, string | number | boolean | un
   return searchParams.toString()
 }
 
-async function readErrorMessage(response: Response) {
+async function readApiError(response: Response) {
   try {
     const payload = (await response.json()) as ApiErrorPayload
-    if (payload.error?.message) {
-      return payload.error.message
+    const message = payload.error?.message || `Request failed with status ${response.status}`
+    const error = new ApiError(message, response.status, payload.error?.code)
+    if (payload.error?.code === 'unauthorized' || payload.error?.code === 'forbidden' || response.status === 401 || response.status === 403) {
+      markUnauthorized({
+        code: payload.error?.code === 'forbidden' || response.status === 403 ? 'forbidden' : 'unauthorized',
+        message,
+      })
     }
+    return error
   } catch {
-    return `Request failed with status ${response.status}`
+    const message = `Request failed with status ${response.status}`
+    const error = new ApiError(message, response.status)
+    if (response.status === 401 || response.status === 403) {
+      markUnauthorized({
+        code: response.status === 403 ? 'forbidden' : 'unauthorized',
+        message,
+      })
+    }
+    return error
   }
-
-  return `Request failed with status ${response.status}`
 }

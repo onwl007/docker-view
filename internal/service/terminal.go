@@ -11,6 +11,7 @@ import (
 	"time"
 
 	mobystdcopy "github.com/moby/moby/api/pkg/stdcopy"
+	"github.com/wanglei/docker-view/internal/audit"
 	"github.com/wanglei/docker-view/internal/docker"
 )
 
@@ -67,14 +68,15 @@ type terminalSessionRecord struct {
 
 type terminalService struct {
 	gateway  docker.TerminalGateway
-	audit    interface{}
+	audit    audit.Recorder
 	mu       sync.RWMutex
 	sessions map[string]terminalSessionRecord
 }
 
-func NewTerminalService(gateway docker.TerminalGateway) TerminalService {
+func NewTerminalService(gateway docker.TerminalGateway, recorder audit.Recorder) TerminalService {
 	return &terminalService{
 		gateway:  gateway,
+		audit:    recorder,
 		sessions: make(map[string]terminalSessionRecord),
 	}
 }
@@ -112,6 +114,13 @@ func (s *terminalService) CreateSession(ctx context.Context, params TerminalSess
 		rows:        params.Rows,
 	}
 	s.mu.Unlock()
+
+	recordAudit(ctx, s.audit, "create_session", params.ContainerID, params.Audit, nil, map[string]any{
+		"command":    command,
+		"sessionId":  session.ID,
+		"tty":        params.TTY,
+		"workingDir": params.WorkingDir,
+	}, "terminal.session", "container")
 
 	return TerminalSession{
 		SessionID:     session.ID,

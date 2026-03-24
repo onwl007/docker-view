@@ -7,6 +7,14 @@ import (
 	"github.com/wanglei/docker-view/internal/docker"
 )
 
+type auditContextKey string
+
+const (
+	auditActorContextKey     auditContextKey = "audit_actor"
+	auditSourceContextKey    auditContextKey = "audit_source"
+	auditUserAgentContextKey auditContextKey = "audit_user_agent"
+)
+
 type AuditMetadata struct {
 	Actor     string
 	Source    string
@@ -124,4 +132,25 @@ func fallbackActor(actor string) string {
 	}
 
 	return actor
+}
+
+func AuditMetadataFromContext(ctx context.Context) AuditMetadata {
+	metadata := AuditMetadata{}
+	if actor, ok := ctx.Value(auditActorContextKey).(string); ok {
+		metadata.Actor = actor
+	}
+	if source, ok := ctx.Value(auditSourceContextKey).(string); ok {
+		metadata.Source = source
+	}
+	if userAgent, ok := ctx.Value(auditUserAgentContextKey).(string); ok {
+		metadata.UserAgent = userAgent
+	}
+	return metadata
+}
+
+func WithAuditMetadata(ctx context.Context, metadata AuditMetadata) context.Context {
+	ctx = context.WithValue(ctx, auditActorContextKey, metadata.Actor)
+	ctx = context.WithValue(ctx, auditSourceContextKey, metadata.Source)
+	ctx = context.WithValue(ctx, auditUserAgentContextKey, metadata.UserAgent)
+	return ctx
 }

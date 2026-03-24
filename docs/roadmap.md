@@ -11,7 +11,7 @@
 - `Phase 4` 已完成 Monitoring 与 Settings 的首版主链路
 - `Phase 5` 已完成 Logs SSE 与 Terminal WebSocket 的首版主链路
 - `Phase 6` 已完成 Compose 项目识别、列表、详情和项目级操作的首版主链路
-- `Phase 7` 及之后阶段尚未开始
+- `Phase 7` 已完成“首版鉴权接入点 + 审计查询/导出 + 前端全局未授权提示”的基础闭环
 
 当前已落地的 REST 能力包括：
 
@@ -40,6 +40,8 @@
 - `GET /api/v1/containers/{id}/logs/stream`
 - `POST /api/v1/containers/{id}/exec-sessions`
 - `GET /api/v1/terminal/sessions/{sessionId}/ws`
+- `GET /api/v1/audit/events`
+- `GET /api/v1/audit/events/export`
 - `GET /api/v1/compose/projects`
 - `GET /api/v1/compose/projects/{name}`
 - `POST /api/v1/compose/projects/{name}/start`
@@ -487,6 +489,22 @@
 
 ## 8. Phase 7: 安全、可运维性与交付收口
 
+### 8.0 当前判定
+
+- 状态：部分完成
+- 已完成：
+  - 静态 token 鉴权接入点与敏感 API 保护
+  - 审计事件内存存储、查询与 NDJSON 导出
+  - 设置保存审计
+  - 终端会话创建审计
+  - 前端全局未授权横幅
+  - 前端 Audit 页面与导出入口
+- 未完成：
+  - 审计持久化落盘和轮转策略
+  - 完整用户体系与角色模型
+  - 部署资产与 CI 门禁固化
+  - WebSocket / SSE 的更细粒度鉴权收口
+
 ### 8.1 目标
 
 - 将安全基线、运维能力和持续交付门禁补齐到可交付状态
@@ -499,16 +517,29 @@
   - 审计落盘或导出能力
   - 运行日志与错误观测增强
   - 配置和部署约束补齐
+  - 当前实现状态：
+    - 已实现基于 `security.requireAuthentication` 和 `security.authToken` 的首版敏感接口鉴权
+    - 已实现内存态审计事件存储、`GET /api/v1/audit/events` 和 `GET /api/v1/audit/events/export`
+    - 已把设置保存和终端建会话纳入审计
+    - 运行日志仍以现有 stdout 为主，未引入更细观测结构
+    - 部署约束和交付资产仍待补齐
 
 - 前端：
   - 认证与未授权状态预留处理
   - 全局错误横幅和关键异常提示收口
   - 设置页与安全能力的衔接收口
+  - 当前实现状态：
+    - 已实现全局未授权横幅
+    - 已新增 Audit 页面，支持查询最近审计事件和导出 NDJSON
+    - 当前仍未实现登录页、会话管理和更细粒度未授权跳转
 
 - 工程与文档：
   - README、部署文档、运维说明同步更新
   - CI 门禁固化
   - 质量门槛、测试策略与实际命令一致
+  - 当前实现状态：
+    - 路线图、README、安全/交互设计已同步当前实现
+    - CI 门禁与部署资产仍待补齐
 
 ### 8.3 依赖与前置条件
 
@@ -523,6 +554,13 @@
 - 部署与运维约束齐全
 - 覆盖率门槛和测试门禁纳入持续集成
 - 首版文档体系与实现状态保持一致
+
+当前剩余收尾项：
+
+- 为审计增加持久化和更细粒度过滤
+- 为 SSE / WebSocket 收口统一鉴权和会话续期策略
+- 增加基础登录/会话管理或与外层网关的明确集成方式
+- 补齐部署资产和 CI 门禁
 
 ## 9. 阶段性验收清单
 

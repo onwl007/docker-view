@@ -8,13 +8,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/wanglei/docker-view/internal/audit"
 	"github.com/wanglei/docker-view/internal/docker"
 )
 
 func TestTerminalServiceCreateSession(t *testing.T) {
 	svc := NewTerminalService(stubTerminalGateway{
 		session: docker.ExecSession{ID: "exec_1", ContainerID: "abc", TTY: true},
-	})
+	}, audit.NewNopRecorder())
 
 	session, err := svc.CreateSession(context.Background(), TerminalSessionParams{
 		ContainerID: "abc",
@@ -29,7 +30,7 @@ func TestTerminalServiceCreateSession(t *testing.T) {
 }
 
 func TestTerminalServiceProxySessionNotFound(t *testing.T) {
-	svc := NewTerminalService(stubTerminalGateway{})
+	svc := NewTerminalService(stubTerminalGateway{}, audit.NewNopRecorder())
 
 	err := svc.ProxySession(context.Background(), "missing", stubTerminalBridge{})
 	if err == nil {

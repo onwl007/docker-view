@@ -9,3 +9,11 @@ docker:
 
 web:
   dir: "./web/dist"
+
+security:
+  requireAuthentication: false
+  authToken: ""
+
+audit:
+  enabled: true
+  maxEvents: 500

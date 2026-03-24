@@ -8,7 +8,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/wanglei/docker-view/internal/audit"
 	"github.com/wanglei/docker-view/internal/config"
 	"github.com/wanglei/docker-view/internal/service"
 )
@@ -209,13 +211,17 @@ func TestComposeProjectsList(t *testing.T) {
 		ComposeActionService:  stubComposeActionService{},
 	})
 
-	req := httptest.NewRequest(nethttp.MethodGet, "/api/v1/compose/projects?q=edge", nil)
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v1/compose/projects", nil)
 	rec := httptest.NewRecorder()
 
 	server.Handler.ServeHTTP(rec, req)
 
 	if rec.Code != nethttp.StatusOK {
 		t.Fatalf("expected status %d, got %d", nethttp.StatusOK, rec.Code)
+	}
+
+	if location := rec.Header().Get("Location"); location != "" {
+		t.Fatalf("expected no redirect, got location %q", location)
 	}
 }
 
@@ -239,6 +245,71 @@ func TestComposeProjectStart(t *testing.T) {
 
 	if rec.Code != nethttp.StatusOK {
 		t.Fatalf("expected status %d, got %d", nethttp.StatusOK, rec.Code)
+	}
+}
+
+func TestAuditEventsList(t *testing.T) {
+	server := New(config.Config{
+		HTTP: config.HTTPConfig{Addr: ":8080"},
+	}, ServerOptions{
+		AuditService: stubAuditService{
+			events: service.ListResult[audit.Event]{
+				Items: []audit.Event{{
+					EventType:  "container.lifecycle",
+					TargetType: "container",
+					TargetID:   "abc123",
+					Action:     "restart",
+					Actor:      "tester",
+					Result:     "success",
+					Timestamp:  time.Date(2026, time.March, 24, 12, 0, 0, 0, time.UTC),
+				}},
+				Total: 1,
+			},
+		},
+		SystemSummaryService:  stubSummaryService{},
+		ComposeService:        stubComposeService{},
+		MonitoringService:     stubMonitoringService{},
+		SettingsService:       stubSettingsService{},
+		ResourceActionService: stubResourceActionService{},
+		ComposeActionService:  stubComposeActionService{},
+	})
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v1/audit/events?limit=10", nil)
+	req.Header.Set("Authorization", "Bearer token")
+	rec := httptest.NewRecorder()
+
+	server.Handler.ServeHTTP(rec, req)
+
+	if rec.Code != nethttp.StatusOK {
+		t.Fatalf("expected status %d, got %d", nethttp.StatusOK, rec.Code)
+	}
+}
+
+func TestProtectedMutationRequiresAuthentication(t *testing.T) {
+	server := New(config.Config{
+		HTTP: config.HTTPConfig{Addr: ":8080"},
+		Security: config.SecurityConfig{
+			RequireAuthentication: true,
+			AuthToken:             "secret",
+		},
+	}, ServerOptions{
+		SystemSummaryService:   stubSummaryService{},
+		ComposeService:         stubComposeService{},
+		MonitoringService:      stubMonitoringService{},
+		SettingsService:        stubSettingsService{},
+		ContainerActionService: stubContainerActionService{},
+		ResourceActionService:  stubResourceActionService{},
+		ComposeActionService:   stubComposeActionService{},
+		AuditService:           stubAuditService{},
+	})
+
+	req := httptest.NewRequest(nethttp.MethodPost, "/api/v1/containers/abc123/start", nil)
+	rec := httptest.NewRecorder()
+
+	server.Handler.ServeHTTP(rec, req)
+
+	if rec.Code != nethttp.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", nethttp.StatusUnauthorized, rec.Code)
 	}
 }
 
@@ -392,6 +463,11 @@ type stubComposeService struct {
 	err      error
 }
 
+type stubAuditService struct {
+	events service.ListResult[audit.Event]
+	err    error
+}
+
 type stubContainerActionService struct {
 	err error
 }
@@ -459,6 +535,10 @@ func (s stubComposeService) Projects(_ context.Context, _ service.ComposeProject
 
 func (s stubComposeService) Project(_ context.Context, _ string) (service.ComposeProjectDetail, error) {
 	return s.project, s.err
+}
+
+func (s stubAuditService) Events(_ context.Context, _ service.AuditListParams) (service.ListResult[audit.Event], error) {
+	return s.events, s.err
 }
 
 func (s stubMonitoringService) Host(_ context.Context) (service.MonitoringHost, error) {

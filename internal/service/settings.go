@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/wanglei/docker-view/internal/audit"
 	"github.com/wanglei/docker-view/internal/config"
 	"github.com/wanglei/docker-view/internal/docker"
 )
@@ -76,13 +77,15 @@ type SettingsSaveResult struct {
 
 type settingsService struct {
 	gateway docker.SystemGateway
+	audit   audit.Recorder
 	mu      sync.RWMutex
 	state   SettingsState
 }
 
-func NewSettingsService(cfg config.Config, gateway docker.SystemGateway) SettingsService {
+func NewSettingsService(cfg config.Config, gateway docker.SystemGateway, recorder audit.Recorder) SettingsService {
 	return &settingsService{
 		gateway: gateway,
+		audit:   recorder,
 		state: SettingsState{
 			Docker: DockerSettings{
 				Host:                   cfg.Docker.Host,
@@ -197,6 +200,11 @@ func (s *settingsService) Save(ctx context.Context, input SettingsState) (Settin
 	if err != nil {
 		return SettingsSaveResult{}, err
 	}
+
+	recordAudit(ctx, s.audit, "save", "settings", AuditMetadataFromContext(ctx), nil, map[string]any{
+		"requiresRestart": validation.RequiresRestart,
+		"restartKeys":     validation.RestartKeys,
+	}, "settings.change", "settings")
 
 	return SettingsSaveResult{
 		Settings:        state,

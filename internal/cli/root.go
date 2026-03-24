@@ -69,6 +69,10 @@ func addFlags(fs *pflag.FlagSet, opts *options) {
 	fs.String("log-level", "", "Application log level")
 	fs.String("docker-host", "", "Docker Engine host")
 	fs.String("web-dir", "", "Directory for built frontend assets")
+	fs.Bool("security-require-authentication", false, "Require authentication for sensitive API access")
+	fs.String("security-auth-token", "", "Static bearer token for authenticated API access")
+	fs.Bool("audit-enabled", true, "Enable in-process audit recording")
+	fs.Int("audit-max-events", 500, "Maximum number of audit events kept in memory")
 }
 
 func loadConfig(opts *options, fs *pflag.FlagSet) (config.Config, error) {
@@ -96,10 +100,14 @@ func loadConfig(opts *options, fs *pflag.FlagSet) (config.Config, error) {
 	}
 
 	for key, flagName := range map[string]string{
-		"http.addr":   "http-addr",
-		"log.level":   "log-level",
-		"docker.host": "docker-host",
-		"web.dir":     "web-dir",
+		"http.addr":                      "http-addr",
+		"log.level":                      "log-level",
+		"docker.host":                    "docker-host",
+		"web.dir":                        "web-dir",
+		"security.requireAuthentication": "security-require-authentication",
+		"security.authToken":             "security-auth-token",
+		"audit.enabled":                  "audit-enabled",
+		"audit.maxEvents":                "audit-max-events",
 	} {
 		if err := v.BindPFlag(key, fs.Lookup(flagName)); err != nil {
 			return config.Config{}, fmt.Errorf("bind flag %q: %w", flagName, err)

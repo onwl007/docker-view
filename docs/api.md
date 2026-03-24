@@ -582,12 +582,35 @@ SSE 日志流接口。
 - 当前删除项目内已识别容器和带 Compose 项目标记的网络
 - 当前默认保留卷，避免误删数据
 
+## 3.11 Audit
+
+### `GET /api/v1/audit/events`
+
+返回最近审计事件列表。
+
+当前实现状态：
+
+- 已实现
+- 当前支持 `q`、`targetType`、`action`、`result`、`limit`
+- 当前数据来源为进程内内存存储
+
+### `GET /api/v1/audit/events/export`
+
+导出审计事件。
+
+当前实现状态：
+
+- 已实现
+- 当前导出格式为 `application/x-ndjson`
+- 当前导出范围与审计列表过滤条件一致
+
 ## 4. 前端协作约定
 
 - 列表页的搜索、筛选、分页参数应映射为 query string
 - 列表和详情接口返回字段命名统一使用 `camelCase`
 - Dashboard 写操作涉及资源数量变化时，前端应失效 `system/summary`
 - 日志流和终端会话不进入 Query Cache
+- `unauthorized` / `forbidden` 应触发全局未授权提示，而不是只在页面内静默失败
 
 ## 5. 状态码约定
 
@@ -596,6 +619,8 @@ SSE 日志流接口。
 - `400 Bad Request`：请求参数非法
 - `404 Not Found`：目标资源不存在
 - `409 Conflict`：当前状态不允许操作
+- `401 Unauthorized`：缺少认证凭据
+- `403 Forbidden`：认证凭据无效或无权限
 - `500 Internal Server Error`：系统内部错误
 - `502 Bad Gateway`：Docker Engine 调用失败或不可达
 
@@ -611,6 +636,8 @@ SSE 日志流接口。
 - `terminal_session_not_found`
 - `terminal_session_closed`
 - `operation_conflict`
+- `unauthorized`
+- `forbidden`
 
 ## 7. 实现约束
 

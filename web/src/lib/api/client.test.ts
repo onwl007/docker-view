@@ -7,6 +7,7 @@ import {
   deleteImage,
   deleteNetwork,
   deleteVolume,
+  fetchAuditEvents,
   fetchContainers,
   fetchContainerLogs,
   fetchMonitoringContainers,
@@ -221,6 +222,33 @@ describe('fetchContainers', () => {
       '/api/v1/containers/abc123/exec-sessions',
       expect.objectContaining({ method: 'POST' }),
     )
+  })
+
+  it('fetches audit events from the api envelope', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: [
+            {
+              eventType: 'container.lifecycle',
+              targetType: 'container',
+              targetId: 'abc123',
+              action: 'restart',
+              actor: 'tester',
+              source: '127.0.0.1',
+              result: 'success',
+              timestamp: '2026-03-24T12:00:00Z',
+            },
+          ],
+          meta: { total: 1 },
+        }),
+        { status: 200 },
+      ),
+    )
+
+    const result = await fetchAuditEvents({ q: 'tester', limit: 10 })
+    expect(result.total).toBe(1)
+    expect(result.items[0]?.action).toBe('restart')
   })
 })
 

@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Network,
   Settings,
+  ShieldCheck,
 } from 'lucide-react'
 
 export const navigationSections = [
@@ -26,6 +27,7 @@ export const navigationSections = [
     label: 'System',
     items: [
       { to: '/monitoring', label: 'Monitoring', icon: Activity },
+      { to: '/audit', label: 'Audit', icon: ShieldCheck },
       { to: '/settings', label: 'Settings', icon: Settings },
     ],
   },

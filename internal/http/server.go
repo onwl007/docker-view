@@ -5,18 +5,22 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/wanglei/docker-view/internal/audit"
 	"github.com/wanglei/docker-view/internal/config"
 	"github.com/wanglei/docker-view/internal/service"
 )
 
 type ServerOptions struct {
+	AuditService           service.AuditService
 	SystemSummaryService   service.SystemSummaryService
 	ResourcesService       service.ResourcesService
 	ComposeService         service.ComposeProjectService
@@ -106,6 +110,67 @@ func New(cfg config.Config, opts ServerOptions) *http.Server {
 		writeJSON(w, http.StatusOK, successResponse[service.SettingsState]{Data: settings})
 	})
 
+	mux.HandleFunc("/api/v1/audit/events", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+			return
+		}
+
+		limit, err := parseOptionalInt(r.URL.Query().Get("limit"))
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_argument", "limit must be a positive integer")
+			return
+		}
+
+		items, err := opts.AuditService.Events(r.Context(), service.AuditListParams{
+			Query:      r.URL.Query().Get("q"),
+			TargetType: r.URL.Query().Get("targetType"),
+			Action:     r.URL.Query().Get("action"),
+			Result:     r.URL.Query().Get("result"),
+			Limit:      limit,
+		})
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, successResponse[[]auditEvent]{
+			Data: mapAuditEvents(items.Items),
+			Meta: &responseMeta{Total: items.Total},
+		})
+	})
+
+	mux.HandleFunc("/api/v1/audit/events/export", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+			return
+		}
+
+		items, err := opts.AuditService.Events(r.Context(), service.AuditListParams{
+			Query:      r.URL.Query().Get("q"),
+			TargetType: r.URL.Query().Get("targetType"),
+			Action:     r.URL.Query().Get("action"),
+			Result:     r.URL.Query().Get("result"),
+		})
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		w.Header().Set("Content-Disposition", `attachment; filename="audit-events.ndjson"`)
+		for _, item := range mapAuditEvents(items.Items) {
+			body, marshalErr := json.Marshal(item)
+			if marshalErr != nil {
+				writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+				return
+			}
+			if _, writeErr := fmt.Fprintln(w, string(body)); writeErr != nil {
+				return
+			}
+		}
+	})
+
 	mux.HandleFunc("/api/v1/containers", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
@@ -143,69 +208,11 @@ func New(cfg config.Config, opts ServerOptions) *http.Server {
 	})
 
 	mux.HandleFunc("/api/v1/compose/projects", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
-			return
-		}
-
-		items, err := opts.ComposeService.Projects(r.Context(), service.ComposeProjectListParams{
-			Query: r.URL.Query().Get("q"),
-		})
-		if err != nil {
-			writeServiceError(w, err)
-			return
-		}
-
-		writeJSON(w, http.StatusOK, successResponse[[]service.ComposeProjectListItem]{
-			Data: items.Items,
-			Meta: &responseMeta{Total: items.Total},
-		})
+		handleComposeProjectsRequest(w, r, opts)
 	})
 
-	mux.HandleFunc("GET /api/v1/compose/projects/{name}", func(w http.ResponseWriter, r *http.Request) {
-		project, err := opts.ComposeService.Project(r.Context(), r.PathValue("name"))
-		if err != nil {
-			writeServiceError(w, err)
-			return
-		}
-
-		writeJSON(w, http.StatusOK, successResponse[service.ComposeProjectDetail]{Data: project})
-	})
-
-	mux.HandleFunc("POST /api/v1/compose/projects/{name}/start", func(w http.ResponseWriter, r *http.Request) {
-		if err := opts.ComposeActionService.Start(r.Context(), r.PathValue("name"), requestAuditMetadata(r)); err != nil {
-			writeServiceError(w, err)
-			return
-		}
-
-		writeActionSuccess(w)
-	})
-
-	mux.HandleFunc("POST /api/v1/compose/projects/{name}/stop", func(w http.ResponseWriter, r *http.Request) {
-		if err := opts.ComposeActionService.Stop(r.Context(), r.PathValue("name"), requestAuditMetadata(r)); err != nil {
-			writeServiceError(w, err)
-			return
-		}
-
-		writeActionSuccess(w)
-	})
-
-	mux.HandleFunc("POST /api/v1/compose/projects/{name}/recreate", func(w http.ResponseWriter, r *http.Request) {
-		if err := opts.ComposeActionService.Recreate(r.Context(), r.PathValue("name"), requestAuditMetadata(r)); err != nil {
-			writeServiceError(w, err)
-			return
-		}
-
-		writeActionSuccess(w)
-	})
-
-	mux.HandleFunc("DELETE /api/v1/compose/projects/{name}", func(w http.ResponseWriter, r *http.Request) {
-		if err := opts.ComposeActionService.Delete(r.Context(), r.PathValue("name"), requestAuditMetadata(r)); err != nil {
-			writeServiceError(w, err)
-			return
-		}
-
-		writeActionSuccess(w)
+	mux.HandleFunc("/api/v1/compose/projects/", func(w http.ResponseWriter, r *http.Request) {
+		handleComposeProjectsRequest(w, r, opts)
 	})
 
 	mux.HandleFunc("GET /api/v1/containers/{id}/logs", func(w http.ResponseWriter, r *http.Request) {
@@ -613,8 +620,20 @@ func New(cfg config.Config, opts ServerOptions) *http.Server {
 
 	return &http.Server{
 		Addr:    cfg.HTTP.Addr,
-		Handler: mux,
+		Handler: withAPISecurity(cfg, mux),
 	}
+}
+
+type auditEvent struct {
+	EventType  string         `json:"eventType"`
+	TargetType string         `json:"targetType"`
+	TargetID   string         `json:"targetId"`
+	Action     string         `json:"action"`
+	Actor      string         `json:"actor"`
+	Source     string         `json:"source"`
+	Result     string         `json:"result"`
+	Timestamp  string         `json:"timestamp"`
+	Details    map[string]any `json:"details,omitempty"`
 }
 
 func parseOptionalInt(value string) (int, error) {
@@ -628,6 +647,181 @@ func parseOptionalInt(value string) (int, error) {
 	}
 
 	return parsed, nil
+}
+
+var errMissingAuthToken = errors.New("missing auth token")
+
+func withAPISecurity(cfg config.Config, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		metadata := requestAuditMetadata(r)
+		ctx := service.WithAuditMetadata(r.Context(), metadata)
+
+		if requiresAuthentication(cfg, r) {
+			actor, err := authenticateRequest(cfg, r)
+			if err != nil {
+				if errors.Is(err, errMissingAuthToken) {
+					writeError(w, http.StatusUnauthorized, "unauthorized", "authentication is required")
+					return
+				}
+
+				writeError(w, http.StatusForbidden, "forbidden", "invalid authentication token")
+				return
+			}
+
+			metadata.Actor = actor
+			ctx = service.WithAuditMetadata(ctx, metadata)
+		}
+
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func requiresAuthentication(cfg config.Config, r *http.Request) bool {
+	if !cfg.Security.RequireAuthentication || strings.TrimSpace(cfg.Security.AuthToken) == "" {
+		return false
+	}
+
+	if r.URL.Path == "/healthz" || !strings.HasPrefix(r.URL.Path, "/api/v1") {
+		return false
+	}
+
+	if strings.HasPrefix(r.URL.Path, "/api/v1/audit") || strings.HasPrefix(r.URL.Path, "/api/v1/settings") || strings.HasPrefix(r.URL.Path, "/api/v1/terminal/") {
+		return true
+	}
+
+	if strings.Contains(r.URL.Path, "/logs") || strings.HasSuffix(r.URL.Path, "/exec-sessions") {
+		return true
+	}
+
+	return r.Method != http.MethodGet
+}
+
+func authenticateRequest(cfg config.Config, r *http.Request) (string, error) {
+	token := strings.TrimSpace(r.Header.Get("Authorization"))
+	if strings.HasPrefix(token, "Bearer ") {
+		token = strings.TrimSpace(strings.TrimPrefix(token, "Bearer "))
+	}
+	if token == "" {
+		token = strings.TrimSpace(r.Header.Get("X-Docker-View-Token"))
+	}
+	if token == "" {
+		return "", errMissingAuthToken
+	}
+	if token != cfg.Security.AuthToken {
+		return "", errors.New("invalid token")
+	}
+
+	actor := strings.TrimSpace(r.Header.Get("X-Docker-View-Actor"))
+	if actor == "" {
+		actor = "authenticated"
+	}
+	return actor, nil
+}
+
+func mapAuditEvents(items []audit.Event) []auditEvent {
+	output := make([]auditEvent, 0, len(items))
+	for _, item := range items {
+		output = append(output, auditEvent{
+			EventType:  item.EventType,
+			TargetType: item.TargetType,
+			TargetID:   item.TargetID,
+			Action:     item.Action,
+			Actor:      item.Actor,
+			Source:     item.Source,
+			Result:     item.Result,
+			Timestamp:  item.Timestamp.UTC().Format(time.RFC3339),
+			Details:    item.Details,
+		})
+	}
+	return output
+}
+
+func handleComposeProjectsRequest(w http.ResponseWriter, r *http.Request, opts ServerOptions) {
+	const projectsPath = "/api/v1/compose/projects"
+
+	if r.URL.Path == projectsPath || r.URL.Path == projectsPath+"/" {
+		if r.Method != http.MethodGet {
+			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+			return
+		}
+
+		items, err := opts.ComposeService.Projects(r.Context(), service.ComposeProjectListParams{
+			Query: r.URL.Query().Get("q"),
+		})
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, successResponse[[]service.ComposeProjectListItem]{
+			Data: items.Items,
+			Meta: &responseMeta{Total: items.Total},
+		})
+		return
+	}
+
+	suffix := strings.TrimPrefix(r.URL.Path, projectsPath+"/")
+	parts := strings.Split(strings.Trim(suffix, "/"), "/")
+	if len(parts) == 0 || parts[0] == "" {
+		writeError(w, http.StatusNotFound, "not_found", "compose project not found")
+		return
+	}
+
+	name, err := url.PathUnescape(parts[0])
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_argument", "invalid compose project name")
+		return
+	}
+
+	if len(parts) == 1 {
+		if r.Method == http.MethodDelete {
+			if err := opts.ComposeActionService.Delete(r.Context(), name, requestAuditMetadata(r)); err != nil {
+				writeServiceError(w, err)
+				return
+			}
+
+			writeActionSuccess(w)
+			return
+		}
+
+		if r.Method != http.MethodGet {
+			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+			return
+		}
+
+		project, err := opts.ComposeService.Project(r.Context(), name)
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, successResponse[service.ComposeProjectDetail]{Data: project})
+		return
+	}
+
+	if len(parts) != 2 || r.Method != http.MethodPost {
+		writeError(w, http.StatusNotFound, "not_found", "compose project not found")
+		return
+	}
+
+	switch parts[1] {
+	case "start":
+		err = opts.ComposeActionService.Start(r.Context(), name, requestAuditMetadata(r))
+	case "stop":
+		err = opts.ComposeActionService.Stop(r.Context(), name, requestAuditMetadata(r))
+	case "recreate":
+		err = opts.ComposeActionService.Recreate(r.Context(), name, requestAuditMetadata(r))
+	default:
+		writeError(w, http.StatusNotFound, "not_found", "compose project not found")
+		return
+	}
+
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	writeActionSuccess(w)
 }
 
 func parseOptionalBoolDefaultTrue(value string) (bool, error) {
@@ -757,11 +951,24 @@ func serviceMessage(err error) string {
 }
 
 func requestAuditMetadata(r *http.Request) service.AuditMetadata {
-	return service.AuditMetadata{
+	metadata := service.AuditMetadata{
 		Actor:     r.Header.Get("X-Docker-View-Actor"),
 		Source:    r.RemoteAddr,
 		UserAgent: r.UserAgent(),
 	}
+
+	ctxMetadata := service.AuditMetadataFromContext(r.Context())
+	if ctxMetadata.Actor != "" {
+		metadata.Actor = ctxMetadata.Actor
+	}
+	if ctxMetadata.Source != "" {
+		metadata.Source = ctxMetadata.Source
+	}
+	if ctxMetadata.UserAgent != "" {
+		metadata.UserAgent = ctxMetadata.UserAgent
+	}
+
+	return metadata
 }
 
 type terminalWebSocketBridge struct {

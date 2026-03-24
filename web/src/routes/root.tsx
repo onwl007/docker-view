@@ -1,10 +1,16 @@
+import { useEffect, useState } from 'react'
 import { Link, Outlet } from '@tanstack/react-router'
 import { shellMeta, navigationSections } from '@/lib/navigation'
 import { AppFooter, AppTopBar, SidebarFooterStatus } from '@/components/app/docker-view-ui'
+import type { UnauthorizedState } from '@/lib/session'
+import { clearUnauthorized, subscribeUnauthorizedState } from '@/lib/session'
 import { cn } from '@/lib/utils'
 
 export function RootLayout() {
   const WorkspaceIcon = shellMeta.workspaceIcon
+  const [unauthorized, setUnauthorized] = useState<UnauthorizedState | null>(null)
+
+  useEffect(() => subscribeUnauthorizedState(setUnauthorized), [])
 
   return (
     <div className="h-screen overflow-hidden bg-[#fbfbfa] text-[#111111]">
@@ -49,6 +55,19 @@ export function RootLayout() {
 
           <div className="min-w-0 flex-1 overflow-hidden">
             <main className={cn('h-full overflow-auto px-4 py-3 sm:px-6')}>
+              {unauthorized ? (
+                <div className="mb-3 flex items-start justify-between rounded-[20px] border border-[#f3d6d6] bg-[#fff5f5] px-4 py-3 text-sm text-[#9f3f3f]">
+                  <div>
+                    <div className="font-semibold">
+                      {unauthorized.code === 'forbidden' ? 'Authentication failed' : 'Authentication required'}
+                    </div>
+                    <div className="mt-1">{unauthorized.message}</div>
+                  </div>
+                  <button type="button" className="text-[#9f3f3f]" onClick={() => clearUnauthorized()}>
+                    Dismiss
+                  </button>
+                </div>
+              ) : null}
               <Outlet />
             </main>
           </div>

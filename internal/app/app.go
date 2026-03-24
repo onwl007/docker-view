@@ -15,6 +15,7 @@ import (
 
 type App struct {
 	cfg           config.Config
+	audit         service.AuditService
 	systemSummary service.SystemSummaryService
 	resources     service.ResourcesService
 	compose       service.ComposeProjectService
@@ -33,24 +34,35 @@ func New(cfg config.Config) (*App, error) {
 		return nil, err
 	}
 
+	memoryStore := audit.NewMemoryStore(cfg.Audit.MaxEvents)
+	var recorder audit.Recorder = audit.NewNopRecorder()
+	if cfg.Audit.Enabled {
+		recorder = audit.NewMultiRecorder(
+			audit.NewLogRecorder(os.Stdout),
+			memoryStore,
+		)
+	}
+
 	return &App{
 		cfg:           cfg,
+		audit:         service.NewAuditService(memoryStore),
 		systemSummary: service.NewSystemSummaryService(dockerClient),
 		resources:     service.NewResourcesService(dockerClient),
 		compose:       service.NewComposeProjectService(dockerClient),
 		monitoring:    service.NewMonitoringService(dockerClient),
-		settings:      service.NewSettingsService(cfg, dockerClient),
+		settings:      service.NewSettingsService(cfg, dockerClient, recorder),
 		logs:          service.NewContainerLogsService(dockerClient),
-		terminal:      service.NewTerminalService(dockerClient),
-		containerOps:  service.NewContainerActionService(dockerClient, audit.NewLogRecorder(os.Stdout)),
-		resourceOps:   service.NewResourceActionService(dockerClient, audit.NewLogRecorder(os.Stdout)),
-		composeOps:    service.NewComposeProjectActionService(dockerClient, audit.NewLogRecorder(os.Stdout)),
+		terminal:      service.NewTerminalService(dockerClient, recorder),
+		containerOps:  service.NewContainerActionService(dockerClient, recorder),
+		resourceOps:   service.NewResourceActionService(dockerClient, recorder),
+		composeOps:    service.NewComposeProjectActionService(dockerClient, recorder),
 	}, nil
 }
 
 func (a *App) Run(ctx context.Context) error {
 	server := serverhttp.New(a.cfg, serverhttp.ServerOptions{
 		SystemSummaryService:   a.systemSummary,
+		AuditService:           a.audit,
 		ResourcesService:       a.resources,
 		ComposeService:         a.compose,
 		MonitoringService:      a.monitoring,
