@@ -16,6 +16,8 @@ import (
 type ServerOptions struct {
 	SystemSummaryService   service.SystemSummaryService
 	ResourcesService       service.ResourcesService
+	MonitoringService      service.MonitoringService
+	SettingsService        service.SettingsService
 	ContainerActionService service.ContainerActionService
 	ResourceActionService  service.ResourceActionService
 }
@@ -47,6 +49,54 @@ func New(cfg config.Config, opts ServerOptions) *http.Server {
 		}
 
 		writeJSON(w, http.StatusOK, successResponse[service.SystemSummary]{Data: summary})
+	})
+
+	mux.HandleFunc("/api/v1/monitoring/host", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+			return
+		}
+
+		summary, err := opts.MonitoringService.Host(r.Context())
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "docker_unavailable", "docker engine is unavailable")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, successResponse[service.MonitoringHost]{Data: summary})
+	})
+
+	mux.HandleFunc("/api/v1/monitoring/containers", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+			return
+		}
+
+		items, err := opts.MonitoringService.Containers(r.Context())
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "docker_unavailable", "docker engine is unavailable")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, successResponse[[]service.MonitoringContainer]{
+			Data: items,
+			Meta: &responseMeta{Total: len(items)},
+		})
+	})
+
+	mux.HandleFunc("/api/v1/settings", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+			return
+		}
+
+		settings, err := opts.SettingsService.Get(r.Context())
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "docker_unavailable", "docker engine is unavailable")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, successResponse[service.SettingsState]{Data: settings})
 	})
 
 	mux.HandleFunc("/api/v1/containers", func(w http.ResponseWriter, r *http.Request) {
@@ -254,6 +304,33 @@ func New(cfg config.Config, opts ServerOptions) *http.Server {
 		}
 
 		writeActionSuccess(w)
+	})
+
+	mux.HandleFunc("POST /api/v1/settings/validate", func(w http.ResponseWriter, r *http.Request) {
+		var payload service.SettingsState
+		if err := decodeJSONBody(r, &payload); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_argument", err.Error())
+			return
+		}
+
+		validation := opts.SettingsService.Validate(r.Context(), payload)
+		writeJSON(w, http.StatusOK, successResponse[service.SettingsValidation]{Data: validation})
+	})
+
+	mux.HandleFunc("PUT /api/v1/settings", func(w http.ResponseWriter, r *http.Request) {
+		var payload service.SettingsState
+		if err := decodeJSONBody(r, &payload); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_argument", err.Error())
+			return
+		}
+
+		result, err := opts.SettingsService.Save(r.Context(), payload)
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, successResponse[service.SettingsSaveResult]{Data: result})
 	})
 
 	mux.HandleFunc("DELETE /api/v1/images/{id}", func(w http.ResponseWriter, r *http.Request) {

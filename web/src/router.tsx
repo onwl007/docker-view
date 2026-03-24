@@ -6,8 +6,13 @@ import {
 import type { QueryClient } from '@tanstack/react-query'
 import { systemSummaryQueryOptions } from '@/features/dashboard/query-options'
 import {
+  monitoringContainersQueryOptions,
+  monitoringHostQueryOptions,
+} from '@/features/monitoring/query-options'
+import {
   recentContainersQueryOptions,
 } from '@/features/resources/query-options'
+import { settingsQueryOptions } from '@/features/settings/query-options'
 import { validateTextSearch } from '@/lib/search'
 import { ContainersPage } from '@/routes/containers'
 import { DashboardPage } from '@/routes/dashboard'
@@ -69,12 +74,21 @@ const networksRoute = createRoute({
 const monitoringRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/monitoring',
+  loader: async ({ context }) => {
+    await Promise.all([
+      context.queryClient.prefetchQuery(monitoringHostQueryOptions),
+      context.queryClient.prefetchQuery(monitoringContainersQueryOptions),
+    ])
+  },
   component: MonitoringPage,
 })
 
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings',
+  loader: async ({ context }) => {
+    await context.queryClient.prefetchQuery(settingsQueryOptions)
+  },
   component: SettingsPage,
 })
 

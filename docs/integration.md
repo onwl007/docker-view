@@ -96,8 +96,7 @@ Query 策略建议：
 
 当前实现状态：
 
-- `system/summary` 与最近容器摘要查询已实现
-- `monitoring/host` 尚未实现
+- `system/summary`、最近容器摘要查询与 `monitoring/host` 已实现
 
 ## 5.2 Containers
 
@@ -182,6 +181,12 @@ Query 策略建议：
 - 采样间隔由 UI 下拉框驱动
 - 轮询暂停和恢复必须可控
 
+当前实现状态：
+
+- `GET /api/v1/monitoring/host` 与 `GET /api/v1/monitoring/containers` 已实现
+- 前端已接入轮询间隔切换和手动刷新
+- 当前采样主要基于 Docker stats 聚合，不依赖 SSE 或 WebSocket
+
 ## 5.7 Settings
 
 接口建议：
@@ -195,6 +200,12 @@ Query 策略建议：
 - `GET` 返回当前配置摘要和可编辑配置 schema
 - `PUT` 返回保存结果以及是否需要重启
 - `validate` 用于保存前进行字段校验
+
+当前实现状态：
+
+- `GET /api/v1/settings`、`POST /api/v1/settings/validate`、`PUT /api/v1/settings` 已实现
+- 前端已接入读取、Reset、校验、保存与 restart keys 提示
+- 当前设置保存为受控内存态，不写回配置文件
 
 ## 5.8 Compose
 

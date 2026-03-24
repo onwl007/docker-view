@@ -432,6 +432,12 @@ SSE 日志流接口。
 - `network`
 - `sampledAt`
 
+当前实现状态：
+
+- 已实现
+- 当前返回 `cpuCores`、`cpuPercent`、`memoryUsedBytes`、`memoryTotalBytes`、`diskUsedBytes`、`diskTotalBytes`、`networkRxBytes`、`networkTxBytes`、`runningContainers`、`totalContainers`、`sampledAt`
+- 当前主机资源视图主要基于 Docker stats 聚合与 Docker root 磁盘占用
+
 ### `GET /api/v1/monitoring/containers`
 
 返回运行中容器资源快照列表。
@@ -441,6 +447,12 @@ SSE 日志流接口。
 - `name`
 - `status`
 - `limit`
+
+当前实现状态：
+
+- 已实现
+- 当前返回运行中容器的 CPU、内存、网络、块设备 I/O、PIDs 与采样时间
+- 当前不支持额外查询参数
 
 ## 3.9 Settings
 
@@ -456,9 +468,20 @@ SSE 日志流接口。
 - `appearance`
 - `meta.requiresRestartFields`
 
+当前实现状态：
+
+- 已实现
+- 当前返回 `docker`、`security`、`notifications`、`appearance`
+- 当前不返回 schema，前端表单字段由页面固定定义
+
 ### `POST /api/v1/settings/validate`
 
 校验设置请求体，返回字段级校验结果。
+
+当前实现状态：
+
+- 已实现
+- 当前返回 `valid`、`requiresRestart`、`restartKeys`、`issues`
 
 ### `PUT /api/v1/settings`
 
@@ -474,6 +497,12 @@ SSE 日志流接口。
   }
 }
 ```
+
+当前实现状态：
+
+- 已实现
+- 当前返回保存后的 `settings`、`requiresRestart`、`restartKeys`
+- 当前保存范围为受控内存态，不写回配置文件
 
 ## 3.10 Compose
 

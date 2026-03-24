@@ -18,6 +18,8 @@ func TestHealthz(t *testing.T) {
 		HTTP: config.HTTPConfig{Addr: ":8080"},
 	}, ServerOptions{
 		SystemSummaryService:  stubSummaryService{},
+		MonitoringService:     stubMonitoringService{},
+		SettingsService:       stubSettingsService{},
 		ResourceActionService: stubResourceActionService{},
 	})
 
@@ -57,6 +59,8 @@ func TestSystemSummary(t *testing.T) {
 				},
 			},
 		},
+		MonitoringService:     stubMonitoringService{},
+		SettingsService:       stubSettingsService{},
 		ResourceActionService: stubResourceActionService{},
 	})
 
@@ -84,6 +88,8 @@ func TestSystemSummaryUnavailable(t *testing.T) {
 		HTTP: config.HTTPConfig{Addr: ":8080"},
 	}, ServerOptions{
 		SystemSummaryService:  stubSummaryService{err: errors.New("docker unavailable")},
+		MonitoringService:     stubMonitoringService{},
+		SettingsService:       stubSettingsService{},
 		ResourceActionService: stubResourceActionService{},
 	})
 
@@ -123,6 +129,8 @@ func TestContainersList(t *testing.T) {
 				Total: 1,
 			},
 		},
+		MonitoringService:     stubMonitoringService{},
+		SettingsService:       stubSettingsService{},
 		ResourceActionService: stubResourceActionService{},
 	})
 
@@ -155,6 +163,8 @@ func TestContainerStart(t *testing.T) {
 	}, ServerOptions{
 		SystemSummaryService:   stubSummaryService{},
 		ResourcesService:       stubResourcesService{},
+		MonitoringService:      stubMonitoringService{},
+		SettingsService:        stubSettingsService{},
 		ContainerActionService: stubContainerActionService{},
 		ResourceActionService:  stubResourceActionService{},
 	})
@@ -184,11 +194,71 @@ func TestImagePull(t *testing.T) {
 	}, ServerOptions{
 		SystemSummaryService:   stubSummaryService{},
 		ResourcesService:       stubResourcesService{},
+		MonitoringService:      stubMonitoringService{},
+		SettingsService:        stubSettingsService{},
 		ContainerActionService: stubContainerActionService{},
 		ResourceActionService:  stubResourceActionService{},
 	})
 
 	req := httptest.NewRequest(nethttp.MethodPost, "/api/v1/images/pull", strings.NewReader(`{"reference":"nginx:latest"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	server.Handler.ServeHTTP(rec, req)
+
+	if rec.Code != nethttp.StatusOK {
+		t.Fatalf("expected status %d, got %d", nethttp.StatusOK, rec.Code)
+	}
+}
+
+func TestMonitoringHost(t *testing.T) {
+	server := New(config.Config{
+		HTTP: config.HTTPConfig{Addr: ":8080"},
+	}, ServerOptions{
+		SystemSummaryService: stubSummaryService{},
+		MonitoringService: stubMonitoringService{
+			host: service.MonitoringHost{
+				CPUCores:          8,
+				CPUPercent:        23.4,
+				MemoryTotalBytes:  1024,
+				MemoryUsedBytes:   256,
+				RunningContainers: 3,
+				TotalContainers:   5,
+			},
+		},
+		SettingsService:       stubSettingsService{},
+		ResourceActionService: stubResourceActionService{},
+	})
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v1/monitoring/host", nil)
+	rec := httptest.NewRecorder()
+
+	server.Handler.ServeHTTP(rec, req)
+
+	if rec.Code != nethttp.StatusOK {
+		t.Fatalf("expected status %d, got %d", nethttp.StatusOK, rec.Code)
+	}
+}
+
+func TestSettingsValidate(t *testing.T) {
+	server := New(config.Config{
+		HTTP: config.HTTPConfig{Addr: ":8080"},
+	}, ServerOptions{
+		SystemSummaryService: stubSummaryService{},
+		MonitoringService:    stubMonitoringService{},
+		SettingsService: stubSettingsService{
+			validation: service.SettingsValidation{
+				Valid: false,
+				Issues: []service.SettingsIssue{{
+					Field:   "docker.host",
+					Message: "Docker host is required",
+				}},
+			},
+		},
+		ResourceActionService: stubResourceActionService{},
+	})
+
+	req := httptest.NewRequest(nethttp.MethodPost, "/api/v1/settings/validate", strings.NewReader(`{"docker":{"host":""}}`))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
@@ -211,6 +281,19 @@ type stubResourcesService struct {
 
 type stubContainerActionService struct {
 	err error
+}
+
+type stubMonitoringService struct {
+	host       service.MonitoringHost
+	containers []service.MonitoringContainer
+	err        error
+}
+
+type stubSettingsService struct {
+	settings   service.SettingsState
+	validation service.SettingsValidation
+	saveResult service.SettingsSaveResult
+	err        error
 }
 
 type stubResourceActionService struct {
@@ -241,6 +324,26 @@ func (s stubResourcesService) Volumes(_ context.Context, _ service.VolumeListPar
 
 func (s stubResourcesService) Networks(_ context.Context, _ service.NetworkListParams) (service.ListResult[service.NetworkListItem], error) {
 	return service.ListResult[service.NetworkListItem]{}, s.err
+}
+
+func (s stubMonitoringService) Host(_ context.Context) (service.MonitoringHost, error) {
+	return s.host, s.err
+}
+
+func (s stubMonitoringService) Containers(_ context.Context) ([]service.MonitoringContainer, error) {
+	return s.containers, s.err
+}
+
+func (s stubSettingsService) Get(_ context.Context) (service.SettingsState, error) {
+	return s.settings, s.err
+}
+
+func (s stubSettingsService) Validate(_ context.Context, _ service.SettingsState) service.SettingsValidation {
+	return s.validation
+}
+
+func (s stubSettingsService) Save(_ context.Context, _ service.SettingsState) (service.SettingsSaveResult, error) {
+	return s.saveResult, s.err
 }
 
 func (s stubContainerActionService) Start(_ context.Context, _ service.ContainerTimeoutParams) error {

@@ -7,10 +7,15 @@ import {
   deleteNetwork,
   deleteVolume,
   fetchContainers,
+  fetchMonitoringContainers,
+  fetchMonitoringHost,
+  fetchSettings,
   fetchSystemSummary,
   pullImage,
   pruneImages,
+  saveSettings,
   startContainer,
+  validateSettings,
 } from '@/lib/api/client'
 
 describe('fetchSystemSummary', () => {
@@ -186,6 +191,84 @@ describe('fetchContainers', () => {
       5,
       '/api/v1/images/sha256:abc?force=true',
       expect.objectContaining({ method: 'DELETE' }),
+    )
+  })
+})
+
+describe('monitoring and settings api helpers', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('fetches monitoring payloads from their endpoints', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { cpuCores: 8, cpuPercent: 12.5 } }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: [{ id: 'abc', name: 'nginx' }], meta: { total: 1 } }), { status: 200 }),
+      )
+
+    const host = await fetchMonitoringHost()
+    const containers = await fetchMonitoringContainers()
+
+    expect(host.cpuPercent).toBe(12.5)
+    expect(containers.total).toBe(1)
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/v1/monitoring/host', expect.anything())
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/v1/monitoring/containers', expect.anything())
+  })
+
+  it('validates and saves settings with JSON payloads', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+    const settings = {
+      docker: {
+        host: 'unix:///var/run/docker.sock',
+        tlsEnabled: false,
+        autoRefresh: true,
+        refreshIntervalSeconds: 5,
+      },
+      security: {
+        requireAuthentication: false,
+        twoFactorEnabled: false,
+        sessionTimeoutMinutes: 30,
+        localConnectionsOnly: true,
+      },
+      notifications: {
+        enabled: true,
+        containerStateChanges: true,
+        resourceAlerts: true,
+        imageUpdates: false,
+        securityVulnerabilities: false,
+      },
+      appearance: {
+        theme: 'system' as const,
+        compactMode: false,
+        showContainerIDs: false,
+      },
+    }
+
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: settings }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { valid: true, requiresRestart: false } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { settings, requiresRestart: false } }), { status: 200 }))
+
+    const current = await fetchSettings()
+    const validation = await validateSettings(settings)
+    const saved = await saveSettings(settings)
+
+    expect(current.docker.host).toBe('unix:///var/run/docker.sock')
+    expect(validation.valid).toBe(true)
+    expect(saved.settings.appearance.theme).toBe('system')
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/settings/validate',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      '/api/v1/settings',
+      expect.objectContaining({ method: 'PUT' }),
     )
   })
 })

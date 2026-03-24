@@ -12,6 +12,11 @@ type Summary struct {
 	HostName          string
 	DockerVersion     string
 	APIVersion        string
+	OperatingSystem   string
+	KernelVersion     string
+	StorageDriver     string
+	CgroupDriver      string
+	DockerRootDir     string
 	ContainersTotal   int
 	ContainersRunning int
 	ContainersStopped int
@@ -76,6 +81,11 @@ func (c *Client) Summary(ctx context.Context) (Summary, error) {
 		HostName:          info.Info.Name,
 		DockerVersion:     version.Version,
 		APIVersion:        version.APIVersion,
+		OperatingSystem:   info.Info.OperatingSystem,
+		KernelVersion:     info.Info.KernelVersion,
+		StorageDriver:     info.Info.Driver,
+		CgroupDriver:      info.Info.CgroupDriver,
+		DockerRootDir:     info.Info.DockerRootDir,
 		ContainersTotal:   info.Info.Containers,
 		ContainersRunning: info.Info.ContainersRunning,
 		ContainersStopped: info.Info.ContainersStopped,

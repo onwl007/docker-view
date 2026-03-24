@@ -8,7 +8,8 @@
 - `Phase 2` 已完成“Dashboard + 四类核心资源列表浏览、筛选、URL Search Params 同步、最近容器摘要”这一主链路
 - `Phase 2` 尚未完成资源详情页与关联关系 drill-down
 - `Phase 3` 已完成“核心资源写操作第一版 + 最小审计接入 + 前端确认/反馈/缓存失效”这一主链路
-- `Phase 4` 及之后阶段尚未开始
+- `Phase 4` 已完成 Monitoring 与 Settings 的首版主链路
+- `Phase 5` 及之后阶段尚未开始
 
 当前已落地的 REST 能力包括：
 
@@ -28,6 +29,11 @@
 - `GET /api/v1/networks`
 - `POST /api/v1/networks`
 - `DELETE /api/v1/networks/{id}`
+- `GET /api/v1/monitoring/host`
+- `GET /api/v1/monitoring/containers`
+- `GET /api/v1/settings`
+- `POST /api/v1/settings/validate`
+- `PUT /api/v1/settings`
 
 ## 1. 路线原则
 
@@ -243,8 +249,19 @@
 
 ### 5.0 当前判定
 
-- 状态：未开始
-- 备注：当前 `Monitoring`、`Settings` 页面仍为静态/占位性质，后端接口未实现
+- 状态：部分完成
+- 已完成：
+  - `GET /api/v1/monitoring/host`
+  - `GET /api/v1/monitoring/containers`
+  - `GET /api/v1/settings`
+  - `POST /api/v1/settings/validate`
+  - `PUT /api/v1/settings`
+  - `Monitoring` 页面真实 API 接入、轮询间隔控制与手动刷新
+  - `Settings` 页面真实 API 接入、读取、校验、保存与重启提示
+- 未完成：
+  - 更完整的主机级采样来源
+  - Settings 的持久化存储和重启后保留
+  - 设置变更审计
 
 ### 5.1 目标
 
@@ -261,17 +278,28 @@
   - `POST /api/v1/settings/validate`
   - `PUT /api/v1/settings`
   - Monitoring 和 Settings 对应 service、handler、DTO
+  - 当前实现状态：
+    - 上述接口、service、handler 和 DTO 已实现
+    - Settings 当前为受控内存态，不写回配置文件
+    - Monitoring 当前以 Docker stats 聚合和 Docker root 磁盘占用为主
 
 - 前端：
   - `Monitoring` 页面
   - `Settings` 页面
   - 监控卡片、容器资源表格、刷新间隔控制
   - Docker、Security、Notifications、Appearance 标签页和表单
+  - 当前实现状态：
+    - Monitoring 与 Settings 页面均已接入真实 API
+    - Monitoring 已支持手动刷新和轮询间隔切换
+    - Settings 已支持 Reset、校验、保存和重启提示
 
 - 交互：
   - Monitoring 轮询刷新，不进入长期 Query Cache
   - Settings 支持读取、校验、保存
   - 明确哪些配置变更需要重启生效
+  - 当前实现状态：
+    - Monitoring 轮询和手动刷新已实现
+    - Settings 校验、保存和 restart keys 提示已实现
 
 ### 5.3 依赖与前置条件
 
@@ -287,6 +315,12 @@
 - Settings 页能展示字段校验和保存结果
 - Monitoring 与 Settings 均具备前端和后端单元测试
 - 当前累计覆盖率维持在 90% 以上
+
+当前剩余收尾项：
+
+- 评估并补强主机 CPU / 内存 / 网络采样的精度
+- 视需要把 Settings 从内存态扩展为持久化配置草案
+- 为设置变更补充审计事件
 
 ## 6. Phase 5: Logs SSE 与 Terminal WebSocket
 

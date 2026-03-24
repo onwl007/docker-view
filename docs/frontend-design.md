@@ -187,8 +187,8 @@
 
 当前实现状态：
 
-- 已实现 `/`、`/containers`、`/images`、`/volumes`、`/networks`
-- `/monitoring`、`/settings`、`/compose` 仍未实现
+- 已实现 `/`、`/containers`、`/images`、`/volumes`、`/networks`、`/monitoring`、`/settings`
+- `/compose` 仍未实现
 - 各资源详情子路由、`logs`、`terminal` 仍未实现
 
 ### 5.2 路由职责
@@ -256,7 +256,8 @@ web/src/
 当前实现状态：
 
 - 当前已经形成 `routes/`、`features/`、`components/`、`lib/api/` 的主干结构
-- `monitoring`、`settings`、`compose` feature 目录尚未形成完整实现
+- `monitoring`、`settings` feature 已形成基础实现
+- `compose` feature 仍未开始
 
 ### 6.2 模块边界
 
@@ -305,7 +306,7 @@ web/src/
 
 - 已使用 `/api/v1/system/summary`
 - 已使用 `/api/v1/containers?all=true&limit=5&sort=recent`
-- `monitoring/host` 未实现，因此当前未展示独立监控卡片
+- `monitoring/host` 已实现，但 Dashboard 当前仍未额外展示独立监控卡片
 
 ## 7.2 Containers
 
@@ -429,7 +430,8 @@ web/src/
 
 当前实现状态：
 
-- 未实现
+- 已实现 Monitoring 页面真实 API 接入
+- 已实现监控卡片、容器资源表格、轮询间隔切换与手动刷新
 
 ## 7.7 Settings
 
@@ -455,7 +457,8 @@ web/src/
 
 当前实现状态：
 
-- 未实现
+- 已实现 Settings 页面真实 API 接入
+- 已实现读取、Reset、校验、保存与 restart keys 提示
 
 ## 8. 状态管理设计
 
@@ -493,8 +496,11 @@ web/src/
 当前实现状态：
 
 - 已实际使用 `['system', 'summary']`
+- 已实际使用 `['monitoring', 'host']`
+- 已实际使用 `['monitoring', 'containers']`
+- 已实际使用 `['settings']`
 - 已实际使用 containers、images、volumes、networks 对应列表 key
-- 详情、monitoring、settings、compose key 仍属预留
+- 详情、compose key 仍属预留
 
 ### 8.3 路由 loader 约定
 

@@ -102,6 +102,87 @@ export interface NetworkListItem {
   containerNames?: string[]
 }
 
+export interface MonitoringHost {
+  sampledAt: string
+  cpuCores: number
+  cpuPercent: number
+  memoryUsedBytes: number
+  memoryTotalBytes: number
+  diskUsedBytes: number
+  diskTotalBytes: number
+  networkRxBytes: number
+  networkTxBytes: number
+  runningContainers: number
+  totalContainers: number
+}
+
+export interface MonitoringContainer {
+  id: string
+  shortId: string
+  name: string
+  readAt: string
+  cpuPercent: number
+  memoryUsageBytes: number
+  memoryLimitBytes: number
+  memoryPercent: number
+  networkRxBytes: number
+  networkTxBytes: number
+  blockReadBytes: number
+  blockWriteBytes: number
+  pids: number
+}
+
+export interface SettingsState {
+  docker: {
+    host: string
+    tlsEnabled: boolean
+    autoRefresh: boolean
+    refreshIntervalSeconds: number
+    dockerVersion?: string
+    apiVersion?: string
+    operatingSystem?: string
+    kernelVersion?: string
+    storageDriver?: string
+    cgroupDriver?: string
+  }
+  security: {
+    requireAuthentication: boolean
+    twoFactorEnabled: boolean
+    sessionTimeoutMinutes: number
+    localConnectionsOnly: boolean
+  }
+  notifications: {
+    enabled: boolean
+    containerStateChanges: boolean
+    resourceAlerts: boolean
+    imageUpdates: boolean
+    securityVulnerabilities: boolean
+  }
+  appearance: {
+    theme: 'light' | 'dark' | 'system'
+    compactMode: boolean
+    showContainerIDs: boolean
+  }
+}
+
+export interface SettingsIssue {
+  field: string
+  message: string
+}
+
+export interface SettingsValidation {
+  valid: boolean
+  requiresRestart: boolean
+  restartKeys?: string[]
+  issues?: SettingsIssue[]
+}
+
+export interface SettingsSaveResult {
+  settings: SettingsState
+  requiresRestart: boolean
+  restartKeys?: string[]
+}
+
 interface ApiErrorPayload {
   error?: {
     code?: string
@@ -137,6 +218,32 @@ export async function fetchVolumes(query?: string): Promise<ListResult<VolumeLis
 
 export async function fetchNetworks(query?: string): Promise<ListResult<NetworkListItem>> {
   return requestList<NetworkListItem>('/api/v1/networks', query ? { q: query } : undefined)
+}
+
+export async function fetchMonitoringHost(): Promise<MonitoringHost> {
+  return requestObject<MonitoringHost>('/api/v1/monitoring/host')
+}
+
+export async function fetchMonitoringContainers(): Promise<ListResult<MonitoringContainer>> {
+  return requestList<MonitoringContainer>('/api/v1/monitoring/containers')
+}
+
+export async function fetchSettings(): Promise<SettingsState> {
+  return requestObject<SettingsState>('/api/v1/settings')
+}
+
+export async function validateSettings(settings: SettingsState): Promise<SettingsValidation> {
+  return requestObject<SettingsValidation>('/api/v1/settings/validate', {
+    method: 'POST',
+    body: settings,
+  })
+}
+
+export async function saveSettings(settings: SettingsState): Promise<SettingsSaveResult> {
+  return requestObject<SettingsSaveResult>('/api/v1/settings', {
+    method: 'PUT',
+    body: settings,
+  })
 }
 
 export async function startContainer(id: string): Promise<ActionSuccess> {
@@ -223,11 +330,20 @@ export async function deleteNetwork(id: string): Promise<ActionSuccess> {
   })
 }
 
-async function requestObject<T>(path: string): Promise<T> {
+async function requestObject<T>(
+  path: string,
+  options?: {
+    method?: 'GET' | 'POST' | 'PUT'
+    body?: unknown
+  },
+): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: options?.method ?? 'GET',
     headers: {
       Accept: 'application/json',
+      ...(options?.body ? { 'Content-Type': 'application/json' } : {}),
     },
+    body: options?.body ? JSON.stringify(options.body) : undefined,
   })
 
   if (!response.ok) {

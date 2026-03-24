@@ -17,13 +17,13 @@
 - 卷 `create / delete`
 - 网络 `create / delete`
 - 最小审计记录能力
+- monitoring 采样接口
+- settings 读取、校验、保存接口
 - 统一 JSON 成功 envelope 与错误体
 
 当前尚未落地：
 
 - 四类资源详情接口
-- monitoring 采样接口
-- settings 读写接口
 - logs SSE
 - terminal WebSocket
 - compose 聚合与操作
@@ -46,7 +46,8 @@
 当前实现仍以 REST 为主：
 
 - 已实现：`/healthz`、`/api/v1/system/summary`、四类资源列表与写操作
-- 已预留但未实现：SSE、WebSocket、settings、monitoring、compose、认证链路
+- 已实现：`/healthz`、`/api/v1/system/summary`、四类资源列表与写操作、`monitoring`、`settings`
+- 已预留但未实现：SSE、WebSocket、compose、认证链路
 
 ## 3. 部署与运行模型
 
@@ -81,7 +82,7 @@
 
 - SSE 日志流网关
 - WebSocket 终端会话网关
-- 对外 settings 读写
+- 配置持久化与重启后保留
 
 ## 4. 推荐目录与模块边界
 
