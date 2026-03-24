@@ -612,10 +612,14 @@ export function ModalField({
 export function ModalFooter({
   confirmLabel,
   onCancel,
+  onConfirm,
+  confirmDisabled,
   confirmIcon: ConfirmIcon,
 }: {
   confirmLabel: string
   onCancel: () => void
+  onConfirm?: () => void
+  confirmDisabled?: boolean
   confirmIcon?: LucideIcon
 }) {
   return (
@@ -627,7 +631,7 @@ export function ModalFooter({
       >
         Cancel
       </Button>
-      <Button className="h-10 rounded-xl px-4">
+      <Button className="h-10 rounded-xl px-4" onClick={onConfirm} disabled={confirmDisabled}>
         {ConfirmIcon ? <ConfirmIcon className="h-4 w-4" /> : null}
         {confirmLabel}
       </Button>

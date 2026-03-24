@@ -4,6 +4,30 @@
 
 本文档定义 docker-view 后端的模块划分、领域职责、运行流程、配置模型、审计、安全扩展点与测试边界，用于指导 Go 后端的渐进式实现。
 
+本文档以目标设计为主，同时补充当前实现状态，避免设计描述与代码能力脱节。
+
+## 1.1 当前实现摘要
+
+截至当前阶段，后端已经落地：
+
+- `system summary` 聚合服务
+- containers、images、volumes、networks 四类资源列表接口
+- 容器 `start / stop / restart / delete`
+- 镜像 `pull / delete / prune`
+- 卷 `create / delete`
+- 网络 `create / delete`
+- 最小审计记录能力
+- 统一 JSON 成功 envelope 与错误体
+
+当前尚未落地：
+
+- 四类资源详情接口
+- monitoring 采样接口
+- settings 读写接口
+- logs SSE
+- terminal WebSocket
+- compose 聚合与操作
+
 ## 2. 设计目标
 
 后端的核心职责不是把 Docker API 原样透传给前端，而是提供一个受控、稳定、可测试的容器管理服务层。
@@ -16,6 +40,13 @@
 - 通过 Docker SDK 访问 Docker Engine
 - 对外暴露稳定的 `/api/v1` REST、SSE、WebSocket 接口
 - 为认证、审计和设置管理预留扩展点
+
+### 2.1 当前阶段判定
+
+当前实现仍以 REST 为主：
+
+- 已实现：`/healthz`、`/api/v1/system/summary`、四类资源列表与写操作
+- 已预留但未实现：SSE、WebSocket、settings、monitoring、compose、认证链路
 
 ## 3. 部署与运行模型
 
@@ -36,6 +67,21 @@
 - WebSocket 终端会话网关
 - 配置读取与运行期配置暴露
 - 审计记录
+
+### 3.3 当前实现状态
+
+当前代码已经满足以下运行模型：
+
+- `docker-view` 进程通过 Docker SDK 连接本地 Docker Engine
+- 前端静态资源由后端统一托管
+- HTTP 服务同时暴露健康检查、REST API 与 SPA fallback
+- 审计以最小日志型 recorder 接入应用装配流程
+
+以下仍属于目标设计，尚未实现：
+
+- SSE 日志流网关
+- WebSocket 终端会话网关
+- 对外 settings 读写
 
 ## 4. 推荐目录与模块边界
 
@@ -114,6 +160,19 @@ pkg/
 - WebSocket 消息协议
 - 会话注册、清理、超时控制
 
+### 4.10 当前代码映射
+
+当前仓库已经实际承载职责的后端模块如下：
+
+- `internal/app`：装配 config、docker gateway、service、audit recorder、HTTP server
+- `internal/config`：配置结构、默认值、读取与校验
+- `internal/http`：路由注册、请求解析、统一响应与错误写回
+- `internal/service`：summary、资源列表、资源写操作、错误归一化
+- `internal/docker`：Docker SDK 适配、列表查询、写操作 gateway
+- `internal/audit`：最小 recorder 实现
+
+`internal/realtime` 与更细粒度 model 拆分仍未开始。
+
 ## 5. 核心领域模块
 
 ## 5.1 System Service
@@ -124,6 +183,12 @@ pkg/
 - 输出 Dashboard 和基础健康信息
 - 输出 Monitoring 页所需的主机资源摘要
 
+当前实现状态：
+
+- 已实现 Dashboard 所需 summary 聚合
+- 已输出 Docker 版本、API 版本、宿主机名、CPU、内存、资源计数
+- Monitoring 页所需独立采样接口未实现
+
 ### 5.2 Container Service
 
 负责：
@@ -133,6 +198,13 @@ pkg/
 - 资源统计聚合
 - 容器关联卷、网络、端口等信息整理
 
+当前实现状态：
+
+- 已实现容器列表
+- 已实现 `start / stop / restart / delete`
+- 列表结果已包含端口、网络、卷、Compose project 等摘要字段
+- 容器详情、日志、终端仍未实现
+
 ### 5.3 Image Service
 
 负责：
@@ -140,6 +212,13 @@ pkg/
 - 镜像列表与详情
 - 镜像拉取、删除、清理
 - 镜像关联容器关系聚合
+
+当前实现状态：
+
+- 已实现镜像列表
+- 已实现 `pull / delete / prune`
+- 列表已返回基础使用关系摘要
+- 镜像详情未实现
 
 ### 5.4 Volume Service
 
@@ -149,6 +228,13 @@ pkg/
 - 卷创建、删除
 - 卷与容器关联关系聚合
 
+当前实现状态：
+
+- 已实现卷列表
+- 已实现 `create / delete`
+- 列表已返回挂载点、大小、关联容器摘要
+- 卷详情未实现
+
 ### 5.5 Network Service
 
 负责：
@@ -157,6 +243,13 @@ pkg/
 - 网络创建、删除
 - 网络与容器关系聚合
 
+当前实现状态：
+
+- 已实现网络列表
+- 已实现 `create / delete`
+- 列表已返回 driver、scope、subnet、gateway、关联容器摘要
+- 网络详情未实现
+
 ### 5.6 Monitoring Service
 
 负责：
@@ -164,6 +257,10 @@ pkg/
 - 主机级资源采样
 - 容器资源占用快照
 - 将 Docker stats 等底层数据映射成前端友好的聚合视图
+
+当前实现状态：
+
+- 未实现
 
 ### 5.7 Settings Service
 
@@ -176,6 +273,10 @@ pkg/
 
 首版建议只支持受控配置子集，不开放任意运行时参数写入。
 
+当前实现状态：
+
+- 未实现
+
 ### 5.8 Compose Service
 
 负责：
@@ -183,6 +284,10 @@ pkg/
 - 基于 Compose 标签识别项目
 - 聚合项目下容器、网络、卷关系
 - 编排项目级启动、停止、重建等操作
+
+当前实现状态：
+
+- 未实现
 
 ### 5.9 Terminal Service
 
@@ -193,6 +298,10 @@ pkg/
 - 处理 resize、stdin、close
 - 记录会话审计
 
+当前实现状态：
+
+- 未实现
+
 ### 5.10 Log Stream Service
 
 负责：
@@ -201,6 +310,10 @@ pkg/
 - 启动日志 tail 流
 - 编码为 SSE 事件
 - 管理连接关闭与异常清理
+
+当前实现状态：
+
+- 未实现
 
 ## 6. Docker Gateway 设计
 
@@ -225,6 +338,11 @@ Gateway 层必须把业务层和 Docker SDK 细节隔离开，避免：
 - `ComposeGateway`
 - `ExecGateway`
 - `LogGateway`
+
+当前实现状态：
+
+- 已实际形成 system summary、resource list、resource mutation 三组 gateway 能力
+- monitoring、compose、exec、log gateway 尚未开始
 
 ### 6.3 返回模型原则
 
@@ -254,6 +372,26 @@ Gateway 层必须把业务层和 Docker SDK 细节隔离开，避免：
 - `/api/v1/compose/*`
 - `/api/v1/terminal/*`
 
+### 7.2 当前已实现路由
+
+- `GET /healthz`
+- `GET /api/v1/system/summary`
+- `GET /api/v1/containers`
+- `POST /api/v1/containers/{id}/start`
+- `POST /api/v1/containers/{id}/stop`
+- `POST /api/v1/containers/{id}/restart`
+- `DELETE /api/v1/containers/{id}`
+- `GET /api/v1/images`
+- `POST /api/v1/images/pull`
+- `POST /api/v1/images/prune`
+- `DELETE /api/v1/images/{id}`
+- `GET /api/v1/volumes`
+- `POST /api/v1/volumes`
+- `DELETE /api/v1/volumes/{name}`
+- `GET /api/v1/networks`
+- `POST /api/v1/networks`
+- `DELETE /api/v1/networks/{id}`
+
 ### 7.3 中间件建议
 
 - 请求日志
@@ -262,6 +400,13 @@ Gateway 层必须把业务层和 Docker SDK 细节隔离开，避免：
 - CORS
 - 认证预留中间件
 - 审计上下文注入
+
+当前实现状态：
+
+- 当前采用标准库 `http.ServeMux` 直接注册 handler
+- 尚未形成统一中间件链
+- 审计元数据在 handler 中从 request 提取后传入 service
+- 认证与 request id 中间件仍未实现
 
 ## 8. 配置设计
 
@@ -301,6 +446,11 @@ Gateway 层必须把业务层和 Docker SDK 细节隔离开，避免：
 
 其中通知和外观更适合作为应用配置资源，而不是 Docker Engine 配置本身。
 
+当前实现状态：
+
+- 配置模型已存在于后端启动流程
+- 尚无对外 settings API
+
 ## 9. 错误模型设计
 
 后端应提供稳定错误码，便于前端做分类处理。
@@ -316,6 +466,12 @@ Gateway 层必须把业务层和 Docker SDK 细节隔离开，避免：
 - `stream_closed`
 - `internal_error`
 
+当前实现状态：
+
+- 已稳定使用 `invalid_argument`、`not_found`、`conflict`、`docker_unavailable`
+- `method_not_allowed` 也已在 HTTP 层直接返回
+- `unauthorized`、`forbidden`、`stream_closed` 仍属预留
+
 建议错误体统一为：
 
 ```json
@@ -327,6 +483,10 @@ Gateway 层必须把业务层和 Docker SDK 细节隔离开，避免：
   }
 }
 ```
+
+当前实现状态：
+
+- 当前错误体已经是统一 envelope，形态与上述建议一致
 
 ## 10. 实时通道设计
 
@@ -369,6 +529,13 @@ WebSocket 适用于：
 - 终端会话创建和关闭
 - 设置变更提交
 
+当前实现状态：
+
+- 已实现容器启停删重启审计
+- 已实现镜像拉取、删除、prune 审计
+- 已实现卷和网络创建删除审计
+- compose、terminal、settings 相关审计未实现
+
 ### 11.2 审计字段建议
 
 - `event_id`
@@ -380,6 +547,11 @@ WebSocket 适用于：
 - `action`
 - `result`
 - `details`
+
+当前实现状态：
+
+- 当前 recorder 已记录 `event_type`、`target_type`、`target_id`、`action`、`actor`、`source`、`result`、`details`
+- `event_id`、独立持久化存储与查询接口仍未实现
 
 ### 11.3 认证接入点
 
@@ -409,6 +581,13 @@ WebSocket 适用于：
 4. logs SSE
 5. terminal WebSocket
 6. compose
+
+### 13.1 当前进度回写
+
+- 第 1 步已完成
+- 第 2 步已完成首版
+- 第 3 步尚未开始
+- 第 4 到第 6 步尚未开始
 
 ## 14. 与其他文档的关系
 

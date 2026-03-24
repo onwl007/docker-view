@@ -94,6 +94,11 @@ Query 策略建议：
 - `containers recent`：短时缓存
 - `monitoring/host`：可轮询
 
+当前实现状态：
+
+- `system/summary` 与最近容器摘要查询已实现
+- `monitoring/host` 尚未实现
+
 ## 5.2 Containers
 
 接口建议：
@@ -111,6 +116,12 @@ Query 策略建议：
 - 若当前处于详情页，同时失效 `['containers', id]`
 - 若 Dashboard 展示容器摘要，同时失效 `['system', 'summary']`
 
+当前实现状态：
+
+- 列表查询与 `start / stop / restart / delete` 已实现
+- 前端已接入确认、提交、成功/失败反馈和 query invalidation
+- 详情页与详情 query 尚未实现
+
 ## 5.3 Images
 
 接口建议：
@@ -125,6 +136,11 @@ Query 策略建议：
 
 - 拉取、删除、清理成功后失效 `['images']` 和 `['system', 'summary']`
 
+当前实现状态：
+
+- 列表查询、拉取、删除、清理已实现
+- 详情页与详情 query 尚未实现
+
 ## 5.4 Volumes
 
 接口建议：
@@ -134,6 +150,11 @@ Query 策略建议：
 - `POST /api/v1/volumes`
 - `DELETE /api/v1/volumes/{name}`
 
+当前实现状态：
+
+- 列表查询、创建、删除已实现
+- 详情页与详情 query 尚未实现
+
 ## 5.5 Networks
 
 接口建议：
@@ -142,6 +163,11 @@ Query 策略建议：
 - `GET /api/v1/networks/{id}`
 - `POST /api/v1/networks`
 - `DELETE /api/v1/networks/{id}`
+
+当前实现状态：
+
+- 列表查询、创建、删除已实现
+- 详情页与详情 query 尚未实现
 
 ## 5.6 Monitoring
 
@@ -237,6 +263,11 @@ Query 策略建议：
 - 写操作只失效相关领域 query key，避免全站刷新
 - 对 Dashboard 的统计影响较大的写操作，补充失效 `['system', 'summary']`
 - Monitoring 默认不因普通写操作强制失效，由轮询自然收敛
+
+当前实现状态：
+
+- `containers`、`images`、`volumes`、`networks` 写操作均已失效各自 query key
+- 会影响总览的写操作已补充失效 `['system', 'summary']`
 
 ## 8. 错误处理协作约定
 

@@ -72,6 +72,12 @@
 - 容器、镜像、卷、网络数量
 - Compose 项目数量
 
+当前实现状态：
+
+- 已实现
+- 当前返回容器、镜像、卷、网络统计与主机基础信息
+- Compose 项目数量尚未实现
+
 ### `GET /api/v1/system/health`
 
 返回后端服务、Docker Engine 和关键依赖的连通状态。
@@ -99,6 +105,12 @@
 - `labels`
 - `composeProject`
 
+当前实现状态：
+
+- 已实现列表查询
+- 当前支持 `q`、`status`、`all`、`limit`、`sort`
+- 详情接口尚未实现
+
 ### `GET /api/v1/containers/{id}`
 
 返回容器详情：
@@ -111,9 +123,17 @@
 - 启动命令摘要
 - 资源限制摘要
 
+当前实现状态：
+
+- 尚未实现
+
 ### `POST /api/v1/containers/{id}/start`
 
 启动容器。
+
+当前实现状态：
+
+- 已实现
 
 ### `POST /api/v1/containers/{id}/stop`
 
@@ -127,9 +147,17 @@
 }
 ```
 
+当前实现状态：
+
+- 已实现
+
 ### `POST /api/v1/containers/{id}/restart`
 
 重启容器。
+
+当前实现状态：
+
+- 已实现
 
 ### `DELETE /api/v1/containers/{id}`
 
@@ -139,6 +167,11 @@
 
 - `force`
 - `removeVolumes`
+
+当前实现状态：
+
+- 已实现
+- 当前支持 query 参数 `force`、`removeVolumes`
 
 ## 3.3 Container Logs
 
@@ -238,9 +271,18 @@ SSE 日志流接口。
 - `name`
 - `dangling`
 
+当前实现状态：
+
+- 已实现列表查询
+- 当前支持 `q`
+
 ### `GET /api/v1/images/{id}`
 
 返回镜像详情与关联容器摘要。
+
+当前实现状态：
+
+- 尚未实现
 
 ### `POST /api/v1/images/pull`
 
@@ -252,15 +294,28 @@ SSE 日志流接口。
 }
 ```
 
+当前实现状态：
+
+- 已实现
+
 ### `DELETE /api/v1/images/{id}`
 
 支持：
 
 - `force`
 
+当前实现状态：
+
+- 已实现
+- 当前支持 query 参数 `force`
+
 ### `POST /api/v1/images/prune`
 
 清理未使用镜像。
+
+当前实现状态：
+
+- 已实现
 
 ## 3.6 Volumes
 
@@ -273,9 +328,18 @@ SSE 日志流接口。
 - `name`
 - `dangling`
 
+当前实现状态：
+
+- 已实现列表查询
+- 当前支持 `q`
+
 ### `GET /api/v1/volumes/{name}`
 
 返回卷详情与关联容器。
+
+当前实现状态：
+
+- 尚未实现
 
 ### `POST /api/v1/volumes`
 
@@ -288,11 +352,21 @@ SSE 日志流接口。
 }
 ```
 
+当前实现状态：
+
+- 已实现
+- 当前只要求 `name`
+
 ### `DELETE /api/v1/volumes/{name}`
 
 支持：
 
 - `force`
+
+当前实现状态：
+
+- 已实现
+- 当前支持 query 参数 `force`
 
 ## 3.7 Networks
 
@@ -306,9 +380,18 @@ SSE 日志流接口。
 - `driver`
 - `scope`
 
+当前实现状态：
+
+- 已实现列表查询
+- 当前支持 `q`
+
 ### `GET /api/v1/networks/{id}`
 
 返回网络详情与关联容器。
+
+当前实现状态：
+
+- 尚未实现
 
 ### `POST /api/v1/networks`
 
@@ -324,9 +407,18 @@ SSE 日志流接口。
 }
 ```
 
+当前实现状态：
+
+- 已实现
+- 当前支持 `name`、`driver`、`internal`
+
 ### `DELETE /api/v1/networks/{id}`
 
 删除网络。
+
+当前实现状态：
+
+- 已实现
 
 ## 3.8 Monitoring
 

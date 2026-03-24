@@ -1,5 +1,34 @@
 # docker-view 实施路线图
 
+## 0. 当前状态
+
+截至当前代码实现，项目进度可以概括为：
+
+- `Phase 1` 已完成
+- `Phase 2` 已完成“Dashboard + 四类核心资源列表浏览、筛选、URL Search Params 同步、最近容器摘要”这一主链路
+- `Phase 2` 尚未完成资源详情页与关联关系 drill-down
+- `Phase 3` 已完成“核心资源写操作第一版 + 最小审计接入 + 前端确认/反馈/缓存失效”这一主链路
+- `Phase 4` 及之后阶段尚未开始
+
+当前已落地的 REST 能力包括：
+
+- `GET /api/v1/system/summary`
+- `GET /api/v1/containers`
+- `POST /api/v1/containers/{id}/start`
+- `POST /api/v1/containers/{id}/stop`
+- `POST /api/v1/containers/{id}/restart`
+- `DELETE /api/v1/containers/{id}`
+- `GET /api/v1/images`
+- `POST /api/v1/images/pull`
+- `POST /api/v1/images/prune`
+- `DELETE /api/v1/images/{id}`
+- `GET /api/v1/volumes`
+- `POST /api/v1/volumes`
+- `DELETE /api/v1/volumes/{name}`
+- `GET /api/v1/networks`
+- `POST /api/v1/networks`
+- `DELETE /api/v1/networks/{id}`
+
 ## 1. 路线原则
 
 实施顺序遵循以下原则：
@@ -16,6 +45,11 @@
 这样可以保证每个阶段都可演示、可测试、可回归，并且实现顺序与整体设计文档保持一致。
 
 ## 2. Phase 1: 基础工程与应用骨架
+
+### 2.0 当前判定
+
+- 状态：已完成
+- 备注：应用装配、配置优先级、基础 HTTP 服务、统一响应结构、Dashboard 概览链路和基础测试都已落地
 
 ### 2.1 目标
 
@@ -62,6 +96,20 @@
 
 ## 3. Phase 2: Dashboard 与核心资源只读能力
 
+### 3.0 当前判定
+
+- 状态：部分完成
+- 已完成：
+  - Dashboard 概览数据查询
+  - Containers、Images、Volumes、Networks 四类资源列表查询
+  - 资源列表筛选与 URL Search Params 同步
+  - 前端空态、错误态、基础分页与后端 DTO 映射
+  - 最近容器摘要与系统概览联动
+- 未完成：
+  - 四类资源详情接口
+  - 四类资源详情页
+  - 资源关系 drill-down 与从 Dashboard 到详情的深链路跳转
+
 ### 3.1 目标
 
 - 完成容器、镜像、卷、网络四类核心资源的只读浏览能力
@@ -74,6 +122,9 @@
   - `containers`、`images`、`volumes`、`networks` 的列表和详情 service
   - 对应 handler、gateway 和 DTO 映射
   - 基础过滤参数解析和统一错误语义
+  - 当前实现状态：
+    - 已完成列表 service、handler、gateway 和 DTO 映射
+    - 详情 service 和详情 handler 尚未实现
 
 - 前端：
   - `Dashboard`
@@ -82,11 +133,17 @@
   - `Volumes`
   - `Networks`
   - 各资源页的统计卡片、表格、空态、错误态和详情视图骨架
+  - 当前实现状态：
+    - 已完成 Dashboard 与四类资源列表页
+    - 详情页骨架与详情视图尚未实现
 
 - 交互：
   - 列表页 URL Search Params 与筛选状态同步
   - 路由 loader 预取和 Query Cache 托管
   - Dashboard 展示最近资源和资源统计摘要
+  - 当前实现状态：
+    - URL Search Params 同步与 Query Cache 已落地
+    - 详情相关缓存与预取尚未落地
 
 ### 3.3 依赖与前置条件
 
@@ -103,7 +160,30 @@
 - 资源列表、空态、错误态与筛选行为具备前端单元测试
 - 当前累计覆盖率维持在 90% 以上
 
+当前剩余收尾项：
+
+- 补齐 `GET /api/v1/containers/{id}`、`GET /api/v1/images/{id}`、`GET /api/v1/volumes/{name}`、`GET /api/v1/networks/{id}`
+- 为四类资源补齐详情页和关系展示
+- 为详情视图补齐前后端测试
+
 ## 4. Phase 3: 核心资源写操作与审计接入
+
+### 4.0 当前判定
+
+- 状态：部分完成
+- 已完成：
+  - 容器启动、停止、重启、删除
+  - 镜像拉取、删除、清理
+  - 卷创建、删除
+  - 网络创建、删除
+  - `internal/audit` 最小日志型实现
+  - 前端创建/删除/危险操作确认流程
+  - mutation 成功/失败反馈
+  - 相关 query key 与 `system/summary` 失效刷新
+- 未完成：
+  - 更细粒度的稳定错误码
+  - 审计事件查询与持久化
+  - 写操作的详情页上下文联动
 
 ### 4.1 目标
 
@@ -119,16 +199,25 @@
   - 卷创建、删除
   - 网络创建、删除
   - `internal/audit` 最小实现和审计事件触发点
+  - 当前实现状态：
+    - 上述接口均已落地
+    - 当前审计为日志型 recorder，记录写操作事件，不含查询接口
 
 - 前端：
   - 创建弹窗、删除确认框、危险操作确认流程
   - mutation 提交、成功提示、失败提示
   - 相关列表和 Dashboard 统计失效刷新
+  - 当前实现状态：
+    - Containers、Images、Volumes、Networks 页的主操作入口已接通
+    - 统一 toast/通知中心尚未实现，当前为页面内反馈区
 
 - 交互：
   - 稳定错误码
   - 成功后失效对应 query key
   - 对影响概览的写操作补充失效 `system/summary`
+  - 当前实现状态：
+    - query invalidation 与 `system/summary` 失效已完成
+    - 错误码当前以 `invalid_argument`、`not_found`、`conflict`、`docker_unavailable`、`internal_error` 为主
 
 ### 4.3 依赖与前置条件
 
@@ -144,7 +233,18 @@
 - 每个写操作都具备前端和后端单元测试
 - 当前累计覆盖率维持在 90% 以上
 
+当前剩余收尾项：
+
+- 为写操作补充更完整的测试覆盖和失败场景断言
+- 明确详情页存在时的精细化失效策略
+- 视需要把当前页面内反馈升级为统一通知系统
+
 ## 5. Phase 4: Monitoring 与 Settings
+
+### 5.0 当前判定
+
+- 状态：未开始
+- 备注：当前 `Monitoring`、`Settings` 页面仍为静态/占位性质，后端接口未实现
 
 ### 5.1 目标
 
@@ -190,6 +290,10 @@
 
 ## 6. Phase 5: Logs SSE 与 Terminal WebSocket
 
+### 6.0 当前判定
+
+- 状态：未开始
+
 ### 6.1 目标
 
 - 实现容器日志查询和日志实时流
@@ -231,6 +335,10 @@
 - 当前累计覆盖率维持在 90% 以上
 
 ## 7. Phase 6: Compose 管理
+
+### 7.0 当前判定
+
+- 状态：未开始
 
 ### 7.1 目标
 

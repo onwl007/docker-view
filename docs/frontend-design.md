@@ -4,7 +4,28 @@
 
 本文档基于 `design/` 目录中的页面截图，定义 docker-view 前端的视觉结构、信息架构、路由拆分、组件边界、状态管理和实现约束，作为后续 React 前端实现的直接设计依据。
 
-本文档只定义前端设计，不包含具体代码实现。
+本文档以目标设计为主，同时补充当前实现状态，帮助把页面规划与实际代码进度对齐。
+
+## 1.1 当前实现摘要
+
+截至当前阶段，前端已经落地：
+
+- Dashboard 真实 API 接入
+- Containers、Images、Volumes、Networks 四个资源列表页
+- 搜索词到 URL 的同步
+- 容器 `start / stop / restart / delete`
+- 镜像 `pull / delete / prune`
+- 卷 `create / delete`
+- 网络 `create / delete`
+- mutation 成功后的 query invalidation 与全局摘要刷新
+
+当前尚未落地：
+
+- 四类资源详情页
+- Monitoring 页面
+- Settings 页面
+- Compose 页面
+- Logs / Terminal 页面
 
 ## 2. 设计输入与实现约束
 
@@ -50,6 +71,13 @@
 - 服务端状态优先交给 TanStack Query 管理
 - 所有资源页共享统一的后台布局与交互模式
 - 前端只做体验层状态表达，不承担最终权限判断
+
+### 2.4 当前阶段判定
+
+当前前端已经具备“列表浏览 + 关键写操作”的主链路，但仍处于 Phase 2/3 之间：
+
+- 已完成：Dashboard、四类资源列表、搜索 URL 同步、确认弹窗、成功失败反馈
+- 未完成：详情视图、关系 drill-down、Monitoring、Settings、实时日志和终端
 
 ## 3. 整体信息架构
 
@@ -157,12 +185,23 @@
    └─ $projectName
 ```
 
+当前实现状态：
+
+- 已实现 `/`、`/containers`、`/images`、`/volumes`、`/networks`
+- `/monitoring`、`/settings`、`/compose` 仍未实现
+- 各资源详情子路由、`logs`、`terminal` 仍未实现
+
 ### 5.2 路由职责
 
 - 根路由负责通用布局、导航和全局状态承载
 - 资源列表路由负责 loader 预取和筛选参数同步
 - 详情子路由负责详情数据、日志、终端或关联资源呈现
 - 设置路由负责各配置标签页和表单状态
+
+当前实现状态：
+
+- 当前列表页已承担 query orchestration 与 URL 搜索参数同步
+- 尚未形成详情子路由层级
 
 ### 5.3 URL 状态约定
 
@@ -175,6 +214,11 @@
 - 分页参数
 
 这样可以保证刷新、分享链接和前进后退行为稳定。
+
+当前实现状态：
+
+- 当前已落地 `q` 搜索词同步
+- `status`、排序、分页尚未进入 URL
 
 ## 6. 目录与模块拆分
 
@@ -209,6 +253,11 @@ web/src/
 └─ styles/
 ```
 
+当前实现状态：
+
+- 当前已经形成 `routes/`、`features/`、`components/`、`lib/api/` 的主干结构
+- `monitoring`、`settings`、`compose` feature 目录尚未形成完整实现
+
 ### 6.2 模块边界
 
 - `routes/`：只放路由注册、loader、参数解析和页面装配
@@ -217,6 +266,12 @@ web/src/
 - `components/shared/`：放跨领域公用组件，如状态标签、资源卡片、空状态
 - `lib/api/`：放 HTTP client、统一错误处理、SSE/WS 会话封装
 - `lib/query/`：放 query keys 和公共缓存策略
+
+当前实现状态：
+
+- 资源列表 query option 和 mutation hook 已集中在 `features/resources/`
+- HTTP client 与错误映射已集中在 `lib/api/`
+- SSE / WS 会话封装尚未实现
 
 ## 7. 页面设计
 
@@ -245,6 +300,12 @@ web/src/
 - `/api/v1/system/summary`
 - `/api/v1/containers?limit=...`
 - `/api/v1/monitoring/host`
+
+当前实现状态：
+
+- 已使用 `/api/v1/system/summary`
+- 已使用 `/api/v1/containers?all=true&limit=5&sort=recent`
+- `monitoring/host` 未实现，因此当前未展示独立监控卡片
 
 ## 7.2 Containers
 
@@ -275,6 +336,13 @@ web/src/
 - `ContainerLogsPanel`
 - `ContainerTerminalPanel`
 
+当前实现状态：
+
+- 已实现摘要卡片、搜索、表格、行级快速操作
+- 已实现 `Start / Stop / Restart / Delete` 确认弹窗与反馈
+- 当前未实现创建容器
+- 当前未实现容器详情、日志、终端面板
+
 ## 7.3 Images
 
 设计稿特征：
@@ -292,6 +360,12 @@ web/src/
 - `ImagePruneCard`
 - `ImageDeleteDialog`
 
+当前实现状态：
+
+- 已实现摘要卡片、搜索、表格
+- 已实现 `Pull Image`、`Prune Unused`、`Delete`
+- 当前未实现“运行容器”“查看层”“添加标签”等详情或扩展动作
+
 ## 7.4 Volumes
 
 设计稿特征：
@@ -307,6 +381,12 @@ web/src/
 - `VolumeCreateDialog`
 - `VolumeRowActions`
 - `VolumeUsageBadgeList`
+
+当前实现状态：
+
+- 已实现摘要卡片、搜索、表格
+- 已实现创建与删除确认弹窗
+- 当前未实现 volume 详情页
 
 ## 7.5 Networks
 
@@ -324,6 +404,12 @@ web/src/
 - `NetworkCreateDialog`
 - `NetworkRowActions`
 
+当前实现状态：
+
+- 已实现摘要卡片、搜索、表格
+- 已实现创建与删除确认弹窗
+- 当前未实现 network 详情页
+
 ## 7.6 Monitoring
 
 设计稿特征：
@@ -340,6 +426,10 @@ web/src/
 - `UsageProgress`
 
 此页的数据模型应支持轮询刷新，不适合长期缓存。
+
+当前实现状态：
+
+- 未实现
 
 ## 7.7 Settings
 
@@ -363,6 +453,10 @@ web/src/
 - 首版设置页可以先实现“读取当前配置 + 提交配置草案”的能力
 - 明确区分“当前运行配置”和“用户提交但待重启生效的配置”
 
+当前实现状态：
+
+- 未实现
+
 ## 8. 状态管理设计
 
 ## 8.1 TanStack Query 使用原则
@@ -372,6 +466,13 @@ web/src/
 - mutation 成功后统一失效相关 query key
 - 轮询页单独配置 `refetchInterval`
 - SSE 和 WebSocket 会话不进入 query cache
+
+当前实现状态：
+
+- 当前读请求已经通过 query 托管
+- 当前写操作已经通过 mutation 执行
+- mutation 成功后会失效对应资源列表与 `['system', 'summary']`
+- 轮询、SSE、WebSocket 相关策略尚未落地
 
 ### 8.2 Query Key 建议
 
@@ -389,11 +490,23 @@ web/src/
 ['compose', filters]
 ```
 
+当前实现状态：
+
+- 已实际使用 `['system', 'summary']`
+- 已实际使用 containers、images、volumes、networks 对应列表 key
+- 详情、monitoring、settings、compose key 仍属预留
+
 ### 8.3 路由 loader 约定
 
 - 路由 loader 只做预取，不在 loader 内写复杂业务判断
 - 页面组件通过 `useSuspenseQuery` 或 `useQuery` 消费预取结果
 - 列表页通过 loader 读取 URL search 参数并触发预取
+
+当前实现状态：
+
+- 当前主要通过页面中的 `useQuery` 驱动
+- 资源页已实现 URL 搜索参数同步
+- route loader 级预取仍可作为后续优化
 
 ## 9. 前后端交互配合
 
@@ -404,6 +517,13 @@ web/src/
 - 容器终端使用 WebSocket
 - 错误响应统一映射到前端错误对象
 - 高风险操作先弹确认，再触发 mutation
+
+当前实现状态：
+
+- 当前已实现 REST + Query 主链路
+- 当前已实现错误响应到前端错误消息的映射
+- 当前已实现高风险操作确认弹窗
+- SSE 与 WebSocket 仍未接入
 
 ## 10. 响应式策略
 
@@ -420,6 +540,12 @@ web/src/
 - 高风险按钮必须可被测试脚本稳定定位
 - Dialog、Tabs、DropdownMenu 不得依赖不可控副作用
 - SSE、WebSocket 会话层需可被 mock
+
+当前实现状态：
+
+- 当前列表页已具备加载态、空态、错误态
+- 当前关键 mutation 已有前端测试覆盖基础行为
+- 实时能力测试尚未开始
 
 ## 12. 与其他文档的关系
 

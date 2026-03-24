@@ -2,6 +2,10 @@ export interface ApiSuccess<T> {
   data: T
 }
 
+export interface ActionSuccess {
+  success: boolean
+}
+
 export interface ApiMeta {
   total: number
 }
@@ -135,6 +139,90 @@ export async function fetchNetworks(query?: string): Promise<ListResult<NetworkL
   return requestList<NetworkListItem>('/api/v1/networks', query ? { q: query } : undefined)
 }
 
+export async function startContainer(id: string): Promise<ActionSuccess> {
+  return requestAction(`/api/v1/containers/${id}/start`, {
+    method: 'POST',
+  })
+}
+
+export async function stopContainer(id: string, timeoutSeconds?: number): Promise<ActionSuccess> {
+  return requestAction(`/api/v1/containers/${id}/stop`, {
+    method: 'POST',
+    body: timeoutSeconds === undefined ? undefined : { timeoutSeconds },
+  })
+}
+
+export async function restartContainer(id: string, timeoutSeconds?: number): Promise<ActionSuccess> {
+  return requestAction(`/api/v1/containers/${id}/restart`, {
+    method: 'POST',
+    body: timeoutSeconds === undefined ? undefined : { timeoutSeconds },
+  })
+}
+
+export async function deleteContainer(
+  id: string,
+  options: { force?: boolean; removeVolumes?: boolean } = {},
+): Promise<ActionSuccess> {
+  return requestAction(`/api/v1/containers/${id}`, {
+    method: 'DELETE',
+    query: {
+      force: options.force,
+      removeVolumes: options.removeVolumes,
+    },
+  })
+}
+
+export async function pullImage(reference: string): Promise<ActionSuccess> {
+  return requestAction('/api/v1/images/pull', {
+    method: 'POST',
+    body: { reference },
+  })
+}
+
+export async function deleteImage(id: string, options: { force?: boolean } = {}): Promise<ActionSuccess> {
+  return requestAction(`/api/v1/images/${id}`, {
+    method: 'DELETE',
+    query: { force: options.force },
+  })
+}
+
+export async function pruneImages(): Promise<ActionSuccess> {
+  return requestAction('/api/v1/images/prune', {
+    method: 'POST',
+  })
+}
+
+export async function createVolume(name: string): Promise<ActionSuccess> {
+  return requestAction('/api/v1/volumes', {
+    method: 'POST',
+    body: { name },
+  })
+}
+
+export async function deleteVolume(name: string, options: { force?: boolean } = {}): Promise<ActionSuccess> {
+  return requestAction(`/api/v1/volumes/${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+    query: { force: options.force },
+  })
+}
+
+export async function createNetwork(input: {
+  name: string
+  driver?: string
+  internal?: boolean
+}): Promise<ActionSuccess> {
+  return requestAction('/api/v1/networks', {
+    method: 'POST',
+    body: input,
+  })
+}
+
+export async function deleteNetwork(id: string): Promise<ActionSuccess> {
+  return requestAction(`/api/v1/networks/${id}`, {
+    method: 'DELETE',
+  })
+}
+
 async function requestObject<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: {
@@ -171,6 +259,33 @@ async function requestList<T>(
     items: payload.data,
     total: payload.meta.total,
   }
+}
+
+async function requestAction(
+  path: string,
+  options: {
+    method: 'POST' | 'DELETE'
+    body?: Record<string, unknown>
+    query?: Record<string, string | number | boolean | undefined>
+  },
+): Promise<ActionSuccess> {
+  const search = buildSearchParams(options.query)
+  const suffix = search ? `?${search}` : ''
+  const response = await fetch(`${API_BASE_URL}${path}${suffix}`, {
+    method: options.method,
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response))
+  }
+
+  const payload = (await response.json()) as ApiSuccess<ActionSuccess>
+  return payload.data
 }
 
 function buildSearchParams(query?: Record<string, string | number | boolean | undefined>) {

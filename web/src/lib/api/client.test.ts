@@ -1,5 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fetchContainers, fetchSystemSummary } from '@/lib/api/client'
+import {
+  createNetwork,
+  createVolume,
+  deleteContainer,
+  deleteImage,
+  deleteNetwork,
+  deleteVolume,
+  fetchContainers,
+  fetchSystemSummary,
+  pullImage,
+  pruneImages,
+  startContainer,
+} from '@/lib/api/client'
 
 describe('fetchSystemSummary', () => {
   afterEach(() => {
@@ -81,5 +93,99 @@ describe('fetchContainers', () => {
     const payload = await fetchContainers({ q: 'nginx', all: true })
     expect(payload.total).toBe(1)
     expect(payload.items[0]?.name).toBe('nginx-proxy')
+  })
+
+  it('starts a container with a post request', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ data: { success: true } }), { status: 200 }),
+    )
+
+    const payload = await startContainer('abc123')
+
+    expect(payload.success).toBe(true)
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/containers/abc123/start',
+      expect.objectContaining({ method: 'POST' }),
+    )
+  })
+
+  it('deletes a container with encoded query options', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ data: { success: true } }), { status: 200 }),
+    )
+
+    await deleteContainer('abc123', { force: true, removeVolumes: true })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/containers/abc123?force=true&removeVolumes=true',
+      expect.objectContaining({ method: 'DELETE' }),
+    )
+  })
+
+  it('pulls an image with a post body', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ data: { success: true } }), { status: 200 }),
+    )
+
+    await pullImage('nginx:latest')
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/images/pull',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ reference: 'nginx:latest' }),
+      }),
+    )
+  })
+
+  it('prunes images with a post request', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ data: { success: true } }), { status: 200 }),
+    )
+
+    await pruneImages()
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/images/prune',
+      expect.objectContaining({ method: 'POST' }),
+    )
+  })
+
+  it('creates and deletes volumes and networks', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+      new Response(JSON.stringify({ data: { success: true } }), { status: 200 }),
+    )
+
+    await createVolume('data')
+    await deleteVolume('data', { force: true })
+    await createNetwork({ name: 'frontend', driver: 'bridge', internal: true })
+    await deleteNetwork('network-id')
+    await deleteImage('sha256:abc', { force: true })
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/volumes',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/volumes/data?force=true',
+      expect.objectContaining({ method: 'DELETE' }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      '/api/v1/networks',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      '/api/v1/networks/network-id',
+      expect.objectContaining({ method: 'DELETE' }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      5,
+      '/api/v1/images/sha256:abc?force=true',
+      expect.objectContaining({ method: 'DELETE' }),
+    )
   })
 })
