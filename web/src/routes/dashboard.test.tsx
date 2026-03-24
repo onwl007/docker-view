@@ -19,6 +19,19 @@ describe('DashboardView', () => {
           networks: { total: 5 },
           host: { cpuCores: 8, memoryBytes: 34359738368 },
         }}
+        recentContainers={[
+          {
+            id: 'abc123',
+            shortId: 'abc123',
+            name: 'nginx-proxy',
+            image: 'nginx:latest',
+            state: 'running',
+            status: 'Up 2 hours',
+            createdAt: '2026-03-22T10:00:00Z',
+            ports: ['80:80/tcp'],
+            composeProject: 'edge',
+          },
+        ]}
       />,
     )
 

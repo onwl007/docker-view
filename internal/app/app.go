@@ -14,6 +14,7 @@ import (
 type App struct {
 	cfg           config.Config
 	systemSummary service.SystemSummaryService
+	resources     service.ResourcesService
 }
 
 func New(cfg config.Config) (*App, error) {
@@ -25,12 +26,14 @@ func New(cfg config.Config) (*App, error) {
 	return &App{
 		cfg:           cfg,
 		systemSummary: service.NewSystemSummaryService(dockerClient),
+		resources:     service.NewResourcesService(dockerClient),
 	}, nil
 }
 
 func (a *App) Run(ctx context.Context) error {
 	server := serverhttp.New(a.cfg, serverhttp.ServerOptions{
 		SystemSummaryService: a.systemSummary,
+		ResourcesService:     a.resources,
 	})
 
 	go func() {

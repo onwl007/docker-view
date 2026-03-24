@@ -6,7 +6,12 @@ import (
 )
 
 type successResponse[T any] struct {
-	Data T `json:"data"`
+	Data T             `json:"data"`
+	Meta *responseMeta `json:"meta,omitempty"`
+}
+
+type responseMeta struct {
+	Total int `json:"total"`
 }
 
 type errorResponse struct {

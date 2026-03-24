@@ -37,10 +37,10 @@ type HostSummary struct {
 }
 
 type systemSummaryService struct {
-	gateway docker.Gateway
+	gateway docker.SystemGateway
 }
 
-func NewSystemSummaryService(gateway docker.Gateway) SystemSummaryService {
+func NewSystemSummaryService(gateway docker.SystemGateway) SystemSummaryService {
 	return &systemSummaryService{gateway: gateway}
 }
 

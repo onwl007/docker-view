@@ -22,7 +22,7 @@ type Summary struct {
 	MemoryBytes       int64
 }
 
-type Gateway interface {
+type SystemGateway interface {
 	Summary(ctx context.Context) (Summary, error)
 }
 

@@ -1,137 +1,106 @@
 import { useState } from 'react'
-import { Download, Image as ImageIcon, Play, Settings2 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { useNavigate, useSearch } from '@tanstack/react-router'
+import { Image as ImageIcon } from 'lucide-react'
 import {
-  ActionMenu,
-  CleanupCard,
-  EllipsisButton,
-  HeaderActionButton,
   MetricCard,
-  ModalField,
-  ModalFooter,
-  ModalSurface,
   OverviewGrid,
-  PaginationFooter,
   PageSection,
-  TableViewport,
+  PaginationFooter,
   PageToolbar,
   SearchToolbar,
   SectionHeading,
+  TableViewport,
   TagBadge,
 } from '@/components/app/docker-view-ui'
-import {
-  imageMenuActions,
-  imageRows,
-  imagesOverview,
-} from '@/lib/mock-data'
+import { imagesQueryOptions } from '@/features/resources/query-options'
+import { formatBytes, formatRelativeTime } from '@/lib/display'
 
 export function ImagesPage() {
-  const pageSize = 4
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [openMenu, setOpenMenu] = useState<string | null>(null)
+  const search = useSearch({ from: '/images' })
+  const navigate = useNavigate({ from: '/images' })
   const [page, setPage] = useState(1)
-  const pagedRows = imageRows.slice((page - 1) * pageSize, page * pageSize)
+  const pageSize = 6
+  const query = useQuery(imagesQueryOptions(search.q))
+
+  const items = query.data?.items ?? []
+  const pagedItems = items.slice((page - 1) * pageSize, page * pageSize)
+  const inUse = items.filter((item) => item.inUse).length
 
   return (
     <div className="space-y-3">
-      <PageToolbar
-        title="Images"
-        description="Manage your Docker images"
-        actions={
-          <>
-            <HeaderActionButton variant="default" onClick={() => setDialogOpen(true)}>
-              <Download className="h-4 w-4" />
-              Pull Image
-            </HeaderActionButton>
-            <button className="flex h-9 w-9 items-center justify-center rounded-xl text-[#111111]" type="button">
-              <Settings2 className="h-4.5 w-4.5" />
-            </button>
-          </>
-        }
-      />
+      <PageToolbar title="Images" description="Browse local images and tag usage" />
 
       <OverviewGrid>
-        {imagesOverview.map((metric) => (
-          <MetricCard key={metric.label} {...metric} />
-        ))}
+        <MetricCard label="Image Tags" value={String(query.data?.total ?? 0)} />
+        <MetricCard label="In Use" value={String(inUse)} accent="green" />
+        <MetricCard
+          label="Unused"
+          value={String(Math.max((query.data?.total ?? 0) - inUse, 0))}
+        />
+        <MetricCard label="Search Query" value={search.q || 'All'} accent="blue" />
       </OverviewGrid>
 
       <PageSection className="relative flex flex-col">
         <SectionHeading
           icon={ImageIcon}
           title="All Images"
-          actions={<SearchToolbar placeholder="Search images..." />}
+          actions={
+            <SearchToolbar
+              placeholder="Search images..."
+              value={search.q}
+              onChange={(value) => {
+                setPage(1)
+                void navigate({
+                  search: () => (value.trim() ? { q: value.trim() } : {}),
+                  replace: true,
+                })
+              }}
+            />
+          }
         />
         <TableViewport>
-          <table className="min-w-full text-left">
-            <thead>
-              <tr className="border-b border-[rgba(17,17,17,0.06)] text-sm text-[#303030]">
-                <th className="py-3 font-medium">Repository</th>
-                <th className="py-3 font-medium">Tag</th>
-                <th className="py-3 font-medium">Image ID</th>
-                <th className="py-3 font-medium">Size</th>
-                <th className="py-3 font-medium">Layers</th>
-                <th className="py-3 font-medium">Created</th>
-                <th className="py-3 font-medium">Containers</th>
-                <th className="py-3 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pagedRows.map((row) => (
-                <tr key={row.id} className="border-b border-[rgba(17,17,17,0.06)] last:border-b-0">
-                  <td className="py-2.5 text-[15px] font-semibold text-[#111111]">{row.repository}</td>
-                  <td className="py-2.5"><TagBadge>{row.tag}</TagBadge></td>
-                  <td className="py-2.5 text-sm text-[#8b8b8b]">{row.imageId}</td>
-                  <td className="py-2.5 text-[15px] text-[#2f2f2f]">{row.size}</td>
-                  <td className="py-2.5 text-[15px] text-[#2f2f2f]">{row.layers}</td>
-                  <td className="py-2.5 text-[15px] text-[#6a6a6a]">{row.created}</td>
-                  <td className="py-2.5">
-                    {row.inUse ? <TagBadge>{row.containers}</TagBadge> : <span className="text-[#8b8b8b]">-</span>}
-                  </td>
-                  <td className="relative py-2.5">
-                    <div className="flex items-center gap-2">
-                      <button className="rounded-lg p-1 text-[#1dc89a]" type="button">
-                        <Play className="h-4.5 w-4.5" />
-                      </button>
-                      <EllipsisButton
-                        onClick={() =>
-                          setOpenMenu((current) => (current === row.id ? null : row.id))
-                        }
-                      />
-                    </div>
-                    {openMenu === row.id ? <ActionMenu actions={imageMenuActions} className="right-0 top-10" /> : null}
-                  </td>
+          {query.isLoading ? <div className="px-5 py-6 text-sm text-[#8b8b8b]">Loading resources...</div> : null}
+          {query.error ? <div className="px-5 py-6 text-sm text-[#b24b4b]">{query.error.message}</div> : null}
+          {!query.isLoading && !query.error && pagedItems.length === 0 ? (
+            <div className="px-5 py-6 text-sm text-[#8b8b8b]">No images matched the current filter.</div>
+          ) : null}
+          {pagedItems.length > 0 ? (
+            <table className="min-w-full text-left">
+              <thead>
+                <tr className="border-b border-[rgba(17,17,17,0.06)] text-sm text-[#303030]">
+                  <th className="py-3 font-medium">Repository</th>
+                  <th className="py-3 font-medium">Tag</th>
+                  <th className="py-3 font-medium">Image ID</th>
+                  <th className="py-3 font-medium">Size</th>
+                  <th className="py-3 font-medium">Containers</th>
+                  <th className="py-3 font-medium">Created</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {pagedItems.map((row) => (
+                  <tr key={`${row.id}-${row.repository}-${row.tag}`} className="border-b border-[rgba(17,17,17,0.06)] last:border-b-0">
+                    <td className="py-2.5 text-[15px] font-semibold text-[#111111]">{row.repository}</td>
+                    <td className="py-2.5"><TagBadge>{row.tag}</TagBadge></td>
+                    <td className="py-2.5 text-sm text-[#8b8b8b]">{row.shortId}</td>
+                    <td className="py-2.5 text-[15px] text-[#2f2f2f]">{formatBytes(row.sizeBytes)}</td>
+                    <td className="py-2.5">
+                      {row.inUse ? <TagBadge>{String(row.containers)}</TagBadge> : <span className="text-[#8b8b8b]">-</span>}
+                    </td>
+                    <td className="py-2.5 text-[15px] text-[#6a6a6a]">{formatRelativeTime(row.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
         </TableViewport>
         <PaginationFooter
           currentPage={page}
-          totalItems={imageRows.length}
+          totalItems={items.length}
           pageSize={pageSize}
-          onPageChange={(nextPage) => {
-            setOpenMenu(null)
-            setPage(nextPage)
-          }}
+          onPageChange={setPage}
         />
       </PageSection>
-
-      <CleanupCard
-        title="Cleanup Unused Images"
-        description="You have 3 unused images that can be removed to free up space. This will remove all images not used by any container."
-        buttonLabel="Prune Images"
-      />
-
-      {dialogOpen ? (
-        <ModalSurface
-          title="Pull Image"
-          description="Pull a Docker image from a registry"
-          onClose={() => setDialogOpen(false)}
-        >
-          <ModalField label="Image Name" placeholder="e.g. nginx:latest" />
-          <ModalFooter confirmLabel="Pull" onCancel={() => setDialogOpen(false)} confirmIcon={Download} />
-        </ModalSurface>
-      ) : null}
     </div>
   )
 }

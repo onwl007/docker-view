@@ -1,144 +1,155 @@
 import { useState } from 'react'
-import { Box, Plus, Settings2, SquareTerminal, Trash2 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { useNavigate, useSearch } from '@tanstack/react-router'
+import { Box } from 'lucide-react'
 import {
-  ActionMenu,
-  EllipsisButton,
-  HeaderActionButton,
-  IconAction,
   MetricCard,
-  ModalField,
-  ModalFooter,
-  ModalSurface,
   OverviewGrid,
-  PaginationFooter,
   PageSection,
-  TableViewport,
+  PaginationFooter,
   PageToolbar,
   SearchToolbar,
   SectionHeading,
   StatusBadge,
+  TableViewport,
   TagBadge,
 } from '@/components/app/docker-view-ui'
-import {
-  containerMenuActions,
-  containerRows,
-  containersOverview,
-} from '@/lib/mock-data'
+import { containersQueryOptions } from '@/features/resources/query-options'
+import type { ContainerListItem } from '@/lib/api/client'
+import { formatRelativeTime, normalizeContainerState } from '@/lib/display'
 
 export function ContainersPage() {
-  const pageSize = 4
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [openMenu, setOpenMenu] = useState<string | null>(null)
+  const search = useSearch({ from: '/containers' })
+  const navigate = useNavigate({ from: '/containers' })
   const [page, setPage] = useState(1)
-  const pagedRows = containerRows.slice((page - 1) * pageSize, page * pageSize)
+  const pageSize = 6
+  const query = useQuery(containersQueryOptions({ q: search.q, all: true }))
+
+  const items = query.data?.items ?? []
+  const pagedItems = items.slice((page - 1) * pageSize, page * pageSize)
+  const running = items.filter((item) => normalizeContainerState(item.state) === 'running').length
+  const stopped = items.filter((item) => normalizeContainerState(item.state) === 'stopped').length
 
   return (
     <div className="space-y-3">
       <PageToolbar
         title="Containers"
-        description="Manage your Docker containers"
-        actions={
-          <>
-            <HeaderActionButton variant="default" onClick={() => setDialogOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Create Container
-            </HeaderActionButton>
-            <button
-              className="flex h-9 w-9 items-center justify-center rounded-xl text-[#111111]"
-              type="button"
-            >
-              <Settings2 className="h-4.5 w-4.5" />
-            </button>
-          </>
-        }
+        description="Browse containers, runtime state and attached resources"
       />
 
       <OverviewGrid>
-        {containersOverview.map((metric) => (
-          <MetricCard key={metric.label} {...metric} />
-        ))}
+        <MetricCard label="Total Containers" value={String(query.data?.total ?? 0)} />
+        <MetricCard label="Running" value={String(running)} accent="green" />
+        <MetricCard label="Stopped" value={String(stopped)} />
+        <MetricCard label="Search Query" value={search.q || 'All'} accent="blue" />
       </OverviewGrid>
 
       <PageSection className="relative flex flex-col">
         <SectionHeading
           icon={Box}
           title="All Containers"
-          actions={<SearchToolbar placeholder="Search containers..." />}
+          actions={
+            <SearchToolbar
+              placeholder="Search containers..."
+              value={search.q}
+              onChange={(value) => {
+                setPage(1)
+                void navigate({
+                  search: () => (value.trim() ? { q: value.trim() } : {}),
+                  replace: true,
+                })
+              }}
+            />
+          }
         />
         <TableViewport>
-          <table className="min-w-full text-left">
-            <thead>
-              <tr className="border-b border-[rgba(17,17,17,0.06)] text-sm text-[#303030]">
-                <th className="py-3 font-medium">Container</th>
-                <th className="py-3 font-medium">Image</th>
-                <th className="py-3 font-medium">Status</th>
-                <th className="py-3 font-medium">Ports</th>
-                <th className="py-3 font-medium">CPU</th>
-                <th className="py-3 font-medium">Memory</th>
-                <th className="py-3 font-medium">Uptime</th>
-                <th className="py-3 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pagedRows.map((row) => (
-                <tr key={row.id} className="border-b border-[rgba(17,17,17,0.06)] last:border-b-0">
-                  <td className="py-2.5">
-                    <div className="text-[15px] font-semibold text-[#111111]">{row.name}</div>
-                    <div className="text-sm text-[#8b8b8b]">{row.shortId}</div>
-                  </td>
-                  <td className="py-2.5 text-[15px] text-[#2f2f2f]">{row.image}</td>
-                  <td className="py-2.5">
-                    <StatusBadge status={row.status} />
-                  </td>
-                  <td className="py-2.5">
-                    <div className="flex flex-wrap gap-2">
-                      {row.ports.length ? row.ports.map((port) => <TagBadge key={port}>{port}</TagBadge>) : <span className="text-[#8b8b8b]">-</span>}
-                    </div>
-                  </td>
-                  <td className="py-2.5 text-[15px] text-[#303030]">{row.cpu}</td>
-                  <td className="py-2.5 text-[15px] text-[#303030]">{row.memory}</td>
-                  <td className="py-2.5 text-[15px] text-[#5f5f5f]">{row.uptime}</td>
-                  <td className="relative py-2.5">
-                    <div className="flex items-center gap-2">
-                      {row.primaryAction === 'start' ? (
-                        <IconAction icon={SquareTerminal} tone="green" />
-                      ) : (
-                        <IconAction icon={Trash2} tone="default" />
-                      )}
-                      <EllipsisButton
-                        onClick={() =>
-                          setOpenMenu((current) => (current === row.id ? null : row.id))
-                        }
-                      />
-                    </div>
-                    {openMenu === row.id ? <ActionMenu actions={containerMenuActions} className="right-0 top-10" /> : null}
-                  </td>
+          {query.isLoading ? <ResourceLoadingState /> : null}
+          {query.error ? <ResourceErrorState message={query.error.message} /> : null}
+          {!query.isLoading && !query.error && pagedItems.length === 0 ? (
+            <ResourceEmptyState label="containers" />
+          ) : null}
+          {pagedItems.length > 0 ? (
+            <table className="min-w-full text-left">
+              <thead>
+                <tr className="border-b border-[rgba(17,17,17,0.06)] text-sm text-[#303030]">
+                  <th className="py-3 font-medium">Container</th>
+                  <th className="py-3 font-medium">Image</th>
+                  <th className="py-3 font-medium">Status</th>
+                  <th className="py-3 font-medium">Ports</th>
+                  <th className="py-3 font-medium">Networks</th>
+                  <th className="py-3 font-medium">Volumes</th>
+                  <th className="py-3 font-medium">Created</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {pagedItems.map((row) => (
+                  <ContainerTableRow key={row.id} row={row} />
+                ))}
+              </tbody>
+            </table>
+          ) : null}
         </TableViewport>
         <PaginationFooter
           currentPage={page}
-          totalItems={containerRows.length}
+          totalItems={items.length}
           pageSize={pageSize}
-          onPageChange={(nextPage) => {
-            setOpenMenu(null)
-            setPage(nextPage)
-          }}
+          onPageChange={setPage}
         />
       </PageSection>
-
-      {dialogOpen ? (
-        <ModalSurface
-          title="Create Container"
-          description="Create a new Docker container"
-          onClose={() => setDialogOpen(false)}
-        >
-          <ModalField label="Container Name" placeholder="e.g. nginx-proxy" />
-          <ModalFooter confirmLabel="Create" onCancel={() => setDialogOpen(false)} />
-        </ModalSurface>
-      ) : null}
     </div>
   )
+}
+
+export function ContainerTableRow({ row }: { row: ContainerListItem }) {
+  return (
+    <tr className="border-b border-[rgba(17,17,17,0.06)] last:border-b-0">
+      <td className="py-2.5">
+        <div className="text-[15px] font-semibold text-[#111111]">{row.name}</div>
+        <div className="text-sm text-[#8b8b8b]">{row.shortId}</div>
+      </td>
+      <td className="py-2.5 text-[15px] text-[#2f2f2f]">{row.image}</td>
+      <td className="py-2.5">
+        <div className="space-y-2">
+          <StatusBadge status={normalizeContainerState(row.state)} />
+          <div className="text-sm text-[#8b8b8b]">{row.status}</div>
+        </div>
+      </td>
+      <td className="py-2.5">
+        <TagList items={row.ports} />
+      </td>
+      <td className="py-2.5">
+        <TagList items={row.networkNames ?? []} />
+      </td>
+      <td className="py-2.5">
+        <TagList items={row.volumeNames ?? []} />
+      </td>
+      <td className="py-2.5 text-[15px] text-[#5f5f5f]">{formatRelativeTime(row.createdAt)}</td>
+    </tr>
+  )
+}
+
+function TagList({ items }: { items: string[] }) {
+  if (items.length === 0) {
+    return <span className="text-[#8b8b8b]">-</span>
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {items.map((item) => (
+        <TagBadge key={item}>{item}</TagBadge>
+      ))}
+    </div>
+  )
+}
+
+function ResourceLoadingState() {
+  return <div className="px-5 py-6 text-sm text-[#8b8b8b]">Loading resources...</div>
+}
+
+function ResourceErrorState({ message }: { message: string }) {
+  return <div className="px-5 py-6 text-sm text-[#b24b4b]">{message}</div>
+}
+
+function ResourceEmptyState({ label }: { label: string }) {
+  return <div className="px-5 py-6 text-sm text-[#8b8b8b]">No {label} matched the current filter.</div>
 }

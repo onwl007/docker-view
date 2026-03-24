@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fetchSystemSummary } from '@/lib/api/client'
+import { fetchContainers, fetchSystemSummary } from '@/lib/api/client'
 
 describe('fetchSystemSummary', () => {
   afterEach(() => {
@@ -46,5 +46,40 @@ describe('fetchSystemSummary', () => {
     )
 
     await expect(fetchSystemSummary()).rejects.toThrow('docker engine is unavailable')
+  })
+})
+
+describe('fetchContainers', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('returns list payloads with metadata', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: 'abc123',
+              shortId: 'abc123',
+              name: 'nginx-proxy',
+              image: 'nginx:latest',
+              state: 'running',
+              status: 'Up 2 hours',
+              createdAt: '2026-03-22T12:00:00Z',
+              ports: ['80:80/tcp'],
+            },
+          ],
+          meta: {
+            total: 1,
+          },
+        }),
+        { status: 200 },
+      ),
+    )
+
+    const payload = await fetchContainers({ q: 'nginx', all: true })
+    expect(payload.total).toBe(1)
+    expect(payload.items[0]?.name).toBe('nginx-proxy')
   })
 })

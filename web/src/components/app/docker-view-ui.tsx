@@ -192,17 +192,40 @@ export function SectionHeading({
   )
 }
 
-export function SearchToolbar({ placeholder }: { placeholder: string }) {
+export function SearchToolbar({
+  placeholder,
+  value,
+  onChange,
+}: {
+  placeholder: string
+  value?: string
+  onChange?: (value: string) => void
+}) {
   return (
     <div className="flex items-center gap-2">
       <div className="relative min-w-[240px]">
         <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a0a0a0]" />
         <Input
           placeholder={placeholder}
+          value={value ?? ''}
+          onChange={(event) => onChange?.(event.target.value)}
           className="h-8 rounded-xl border-[rgba(17,17,17,0.08)] bg-white pl-10 text-sm shadow-[0_1px_2px_rgba(17,17,17,0.04)]"
         />
+        {value ? (
+          <button
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#a0a0a0]"
+            type="button"
+            onClick={() => onChange?.('')}
+            aria-label="Clear search"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        ) : null}
       </div>
-      <button className="flex h-8 w-8 items-center justify-center rounded-xl border border-[rgba(17,17,17,0.08)] bg-white shadow-[0_1px_2px_rgba(17,17,17,0.04)]">
+      <button
+        className="flex h-8 w-8 items-center justify-center rounded-xl border border-[rgba(17,17,17,0.08)] bg-white shadow-[0_1px_2px_rgba(17,17,17,0.04)]"
+        type="button"
+      >
         <Filter className="h-4 w-4 text-[#444444]" />
       </button>
     </div>

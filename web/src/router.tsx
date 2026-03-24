@@ -5,6 +5,10 @@ import {
 } from '@tanstack/react-router'
 import type { QueryClient } from '@tanstack/react-query'
 import { systemSummaryQueryOptions } from '@/features/dashboard/query-options'
+import {
+  recentContainersQueryOptions,
+} from '@/features/resources/query-options'
+import { validateTextSearch } from '@/lib/search'
 import { ContainersPage } from '@/routes/containers'
 import { DashboardPage } from '@/routes/dashboard'
 import { ImagesPage } from '@/routes/images'
@@ -26,7 +30,10 @@ const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
   loader: async ({ context }) => {
-    await context.queryClient.prefetchQuery(systemSummaryQueryOptions)
+    await Promise.all([
+      context.queryClient.prefetchQuery(systemSummaryQueryOptions),
+      context.queryClient.prefetchQuery(recentContainersQueryOptions),
+    ])
   },
   component: DashboardPage,
 })
@@ -34,24 +41,28 @@ const indexRoute = createRoute({
 const containersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/containers',
+  validateSearch: validateTextSearch,
   component: ContainersPage,
 })
 
 const imagesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/images',
+  validateSearch: validateTextSearch,
   component: ImagesPage,
 })
 
 const volumesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/volumes',
+  validateSearch: validateTextSearch,
   component: VolumesPage,
 })
 
 const networksRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/networks',
+  validateSearch: validateTextSearch,
   component: NetworksPage,
 })
 
