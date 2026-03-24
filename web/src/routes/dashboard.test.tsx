@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { DashboardView } from '@/routes/dashboard'
 
 describe('DashboardView', () => {
-  it('renders the phase 1 summary cards and snapshot details', () => {
+  it('renders the dashboard metrics and recent containers table', () => {
     const markup = renderToStaticMarkup(
       <DashboardView
         summary={{
@@ -24,7 +24,7 @@ describe('DashboardView', () => {
 
     expect(markup).toContain('Containers')
     expect(markup).toContain('12')
-    expect(markup).toContain('prod-docker-01')
-    expect(markup).toContain('Application shell, API contract, and dashboard summary are live.')
+    expect(markup).toContain('Recent Containers')
+    expect(markup).toContain('nginx-proxy')
   })
 })

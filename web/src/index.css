@@ -2,21 +2,21 @@
 @import "tailwindcss";
 
 :root {
-  --app-background: #f3f5f9;
+  --app-background: #fbfbfa;
   --background: #ffffff;
-  --surface: #f8fafc;
-  --foreground: #121826;
-  --sidebar-foreground: #364152;
-  --muted-foreground: #667085;
+  --surface: #ffffff;
+  --foreground: #111111;
+  --sidebar-foreground: #2f2f2f;
+  --muted-foreground: #8b8b8b;
   --panel: rgba(255, 255, 255, 0.9);
-  --panel-subtle: #f5f7fb;
-  --panel-strong: #eef2f7;
-  --border: rgba(15, 23, 42, 0.08);
-  --border-strong: rgba(15, 23, 42, 0.16);
-  --primary: #121826;
-  --primary-strong: #030712;
+  --panel-subtle: #f7f7f6;
+  --panel-strong: #f2f2f1;
+  --border: rgba(17, 17, 17, 0.08);
+  --border-strong: rgba(17, 17, 17, 0.16);
+  --primary: #111111;
+  --primary-strong: #222222;
   --primary-foreground: #ffffff;
-  --ring: rgba(52, 120, 246, 0.28);
+  --ring: rgba(17, 17, 17, 0.16);
   font-family: 'IBM Plex Sans', ui-sans-serif, sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -33,14 +33,17 @@
 }
 
 html {
+  height: 100%;
   scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100vh;
-  background: linear-gradient(180deg, #f7f9fc 0%, #eff3f8 100%);
+  min-height: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #fbfbfa;
 }
 
 a {
@@ -56,5 +59,6 @@ select {
 }
 
 #root {
-  min-height: 100vh;
+  height: 100%;
+  min-height: 100%;
 }
