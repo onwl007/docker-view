@@ -240,6 +240,59 @@ func TestMonitoringHost(t *testing.T) {
 	}
 }
 
+func TestContainerLogs(t *testing.T) {
+	server := New(config.Config{
+		HTTP: config.HTTPConfig{Addr: ":8080"},
+	}, ServerOptions{
+		SystemSummaryService: stubSummaryService{},
+		MonitoringService:    stubMonitoringService{},
+		SettingsService:      stubSettingsService{},
+		ContainerLogsService: stubContainerLogsService{
+			logs: []service.ContainerLogEntry{{
+				Stream:  "stdout",
+				Message: "server started",
+			}},
+		},
+		ResourceActionService: stubResourceActionService{},
+	})
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v1/containers/abc123/logs?tail=10", nil)
+	rec := httptest.NewRecorder()
+
+	server.Handler.ServeHTTP(rec, req)
+
+	if rec.Code != nethttp.StatusOK {
+		t.Fatalf("expected status %d, got %d", nethttp.StatusOK, rec.Code)
+	}
+}
+
+func TestExecSessionCreate(t *testing.T) {
+	server := New(config.Config{
+		HTTP: config.HTTPConfig{Addr: ":8080"},
+	}, ServerOptions{
+		SystemSummaryService: stubSummaryService{},
+		MonitoringService:    stubMonitoringService{},
+		SettingsService:      stubSettingsService{},
+		TerminalService: stubTerminalService{
+			session: service.TerminalSession{
+				SessionID:     "exec_123",
+				WebSocketPath: "/api/v1/terminal/sessions/exec_123/ws",
+			},
+		},
+		ResourceActionService: stubResourceActionService{},
+	})
+
+	req := httptest.NewRequest(nethttp.MethodPost, "/api/v1/containers/abc123/exec-sessions", strings.NewReader(`{"command":["/bin/sh"],"tty":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	server.Handler.ServeHTTP(rec, req)
+
+	if rec.Code != nethttp.StatusOK {
+		t.Fatalf("expected status %d, got %d", nethttp.StatusOK, rec.Code)
+	}
+}
+
 func TestSettingsValidate(t *testing.T) {
 	server := New(config.Config{
 		HTTP: config.HTTPConfig{Addr: ":8080"},
@@ -296,6 +349,16 @@ type stubSettingsService struct {
 	err        error
 }
 
+type stubContainerLogsService struct {
+	logs []service.ContainerLogEntry
+	err  error
+}
+
+type stubTerminalService struct {
+	session service.TerminalSession
+	err     error
+}
+
 type stubResourceActionService struct {
 	err error
 }
@@ -344,6 +407,22 @@ func (s stubSettingsService) Validate(_ context.Context, _ service.SettingsState
 
 func (s stubSettingsService) Save(_ context.Context, _ service.SettingsState) (service.SettingsSaveResult, error) {
 	return s.saveResult, s.err
+}
+
+func (s stubContainerLogsService) Logs(_ context.Context, _ service.ContainerLogsParams) ([]service.ContainerLogEntry, error) {
+	return s.logs, s.err
+}
+
+func (s stubContainerLogsService) Stream(_ context.Context, _ service.ContainerLogsParams, _ func(service.ContainerLogEntry) error) error {
+	return s.err
+}
+
+func (s stubTerminalService) CreateSession(_ context.Context, _ service.TerminalSessionParams) (service.TerminalSession, error) {
+	return s.session, s.err
+}
+
+func (s stubTerminalService) ProxySession(_ context.Context, _ string, _ service.TerminalBridge) error {
+	return s.err
 }
 
 func (s stubContainerActionService) Start(_ context.Context, _ service.ContainerTimeoutParams) error {

@@ -239,6 +239,11 @@ Query 策略建议：
 - 再接入 SSE 追加 tail 内容
 - 切换容器或离开页面时主动关闭连接
 
+当前实现状态：
+
+- 历史日志 REST 与 SSE 追加已实现
+- 容器切换或页面卸载时前端会关闭 SSE 连接
+
 ### 6.2 终端 WebSocket
 
 流程：
@@ -253,6 +258,11 @@ Query 策略建议：
 
 - 将终端连接状态显式呈现为 connecting / ready / closed / error
 - 断开后允许用户重新创建会话
+
+当前实现状态：
+
+- 前端已实现 `connecting / ready / closed / error` 状态呈现
+- 当前断开后支持重新创建新 session，不复用旧 session
 
 ## 7. 前端缓存与刷新策略
 

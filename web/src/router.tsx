@@ -14,6 +14,8 @@ import {
 } from '@/features/resources/query-options'
 import { settingsQueryOptions } from '@/features/settings/query-options'
 import { validateTextSearch } from '@/lib/search'
+import { ContainerLogsPage } from '@/routes/container-logs'
+import { ContainerTerminalPage } from '@/routes/container-terminal'
 import { ContainersPage } from '@/routes/containers'
 import { DashboardPage } from '@/routes/dashboard'
 import { ImagesPage } from '@/routes/images'
@@ -48,6 +50,18 @@ const containersRoute = createRoute({
   path: '/containers',
   validateSearch: validateTextSearch,
   component: ContainersPage,
+})
+
+const containerLogsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/containers/$containerId/logs',
+  component: ContainerLogsPage,
+})
+
+const containerTerminalRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/containers/$containerId/terminal',
+  component: ContainerTerminalPage,
 })
 
 const imagesRoute = createRoute({
@@ -95,6 +109,8 @@ const settingsRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   containersRoute,
+  containerLogsRoute,
+  containerTerminalRoute,
   imagesRoute,
   volumesRoute,
   networksRoute,

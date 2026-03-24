@@ -9,7 +9,8 @@
 - `Phase 2` 尚未完成资源详情页与关联关系 drill-down
 - `Phase 3` 已完成“核心资源写操作第一版 + 最小审计接入 + 前端确认/反馈/缓存失效”这一主链路
 - `Phase 4` 已完成 Monitoring 与 Settings 的首版主链路
-- `Phase 5` 及之后阶段尚未开始
+- `Phase 5` 已完成 Logs SSE 与 Terminal WebSocket 的首版主链路
+- `Phase 6` 及之后阶段尚未开始
 
 当前已落地的 REST 能力包括：
 
@@ -34,6 +35,10 @@
 - `GET /api/v1/settings`
 - `POST /api/v1/settings/validate`
 - `PUT /api/v1/settings`
+- `GET /api/v1/containers/{id}/logs`
+- `GET /api/v1/containers/{id}/logs/stream`
+- `POST /api/v1/containers/{id}/exec-sessions`
+- `GET /api/v1/terminal/sessions/{sessionId}/ws`
 
 ## 1. 路线原则
 
@@ -326,7 +331,19 @@
 
 ### 6.0 当前判定
 
-- 状态：未开始
+- 状态：部分完成
+- 已完成：
+  - `GET /api/v1/containers/{id}/logs`
+  - `GET /api/v1/containers/{id}/logs/stream`
+  - `POST /api/v1/containers/{id}/exec-sessions`
+  - `GET /api/v1/terminal/sessions/{sessionId}/ws`
+  - 容器列表页进入 `Logs` 与 `Terminal` 的入口
+  - 历史日志 REST 拉取与 SSE 追加
+  - 终端会话创建、WebSocket 建链、`stdin / resize / close` 输入与 `stdout / stderr / exit / error` 输出
+- 未完成：
+  - 更完整的终端审计
+  - 更强的终端仿真体验
+  - 与容器详情页的深度联动
 
 ### 6.1 目标
 
@@ -342,17 +359,26 @@
   - `POST /api/v1/containers/{id}/exec-sessions`
   - `GET /api/v1/terminal/sessions/{sessionId}/ws`
   - SSE 编码、WebSocket 消息协议、会话清理
+  - 当前实现状态：
+    - 上述接口与基础会话管理已实现
+    - 当前终端 session 以内存态管理，连接关闭后即清理
 
 - 前端：
   - 容器日志面板
   - 历史日志 + tail 追加展示
   - 容器终端面板
   - connecting / ready / closed / error 状态呈现
+  - 当前实现状态：
+    - 容器日志页与容器终端页已实现
+    - 终端前端当前为最小交互 shell 界面，不是完整 VT100 仿真
 
 - 交互：
   - 日志先走 REST，再接入 SSE
   - 终端先创建会话，再建立 WebSocket
   - 支持 `stdin`、`resize`、`close`、`stdout`、`stderr`、`exit`、`error`
+  - 当前实现状态：
+    - 上述交互链路已实现
+    - 当前会话断开后不支持恢复同一 session
 
 ### 6.3 依赖与前置条件
 
@@ -367,6 +393,12 @@
 - 异常断开、关闭和容器退出场景处理明确
 - 流式能力具备前端和后端单元测试
 - 当前累计覆盖率维持在 90% 以上
+
+当前剩余收尾项：
+
+- 为终端 session 创建、关闭和异常退出补充更细的审计
+- 视需要引入更完整的终端模拟能力
+- 在未来容器详情页出现后，把日志和终端入口并入详情上下文
 
 ## 7. Phase 6: Compose 管理
 

@@ -68,6 +68,37 @@ export interface ContainerListItem {
   volumeNames?: string[]
 }
 
+export interface ContainerLogEntry {
+  stream: 'stdout' | 'stderr'
+  timestamp?: string
+  message: string
+}
+
+export interface ContainerLogsFilters {
+  stdout?: boolean
+  stderr?: boolean
+  since?: string
+  until?: string
+  tail?: string
+  timestamps?: boolean
+}
+
+export interface TerminalSession {
+  sessionId: string
+  websocketPath: string
+}
+
+export interface TerminalSessionInput {
+  command?: string[]
+  user?: string
+  privileged?: boolean
+  tty?: boolean
+  workingDir?: string
+  env?: string[]
+  cols?: number
+  rows?: number
+}
+
 export interface ImageListItem {
   id: string
   shortId: string
@@ -192,6 +223,21 @@ interface ApiErrorPayload {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
 
+export function buildApiUrl(path: string) {
+  if (!API_BASE_URL) {
+    return path
+  }
+
+  return `${API_BASE_URL}${path}`
+}
+
+export function buildWebSocketUrl(path: string) {
+  const base = API_BASE_URL || window.location.origin
+  const url = new URL(path, base)
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+  return url.toString()
+}
+
 export async function fetchSystemSummary(): Promise<SystemSummary> {
   return requestObject<SystemSummary>('/api/v1/system/summary')
 }
@@ -205,6 +251,30 @@ export async function fetchContainers(
     all: filters.all,
     limit: filters.limit,
     sort: filters.sort,
+  })
+}
+
+export async function fetchContainerLogs(
+  id: string,
+  filters: ContainerLogsFilters = {},
+): Promise<ListResult<ContainerLogEntry>> {
+  return requestList<ContainerLogEntry>(`/api/v1/containers/${id}/logs`, {
+    stdout: filters.stdout,
+    stderr: filters.stderr,
+    since: filters.since,
+    until: filters.until,
+    tail: filters.tail,
+    timestamps: filters.timestamps,
+  })
+}
+
+export async function createTerminalSession(
+  id: string,
+  input: TerminalSessionInput = {},
+): Promise<TerminalSession> {
+  return requestObject<TerminalSession>(`/api/v1/containers/${id}/exec-sessions`, {
+    method: 'POST',
+    body: input,
   })
 }
 
@@ -338,6 +408,8 @@ async function requestObject<T>(
   },
 ): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
+    // Keep relative paths in tests and dev proxy setups.
+    // buildApiUrl would turn these into absolute URLs.
     method: options?.method ?? 'GET',
     headers: {
       Accept: 'application/json',

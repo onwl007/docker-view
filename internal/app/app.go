@@ -19,6 +19,8 @@ type App struct {
 	resources     service.ResourcesService
 	monitoring    service.MonitoringService
 	settings      service.SettingsService
+	logs          service.ContainerLogsService
+	terminal      service.TerminalService
 	containerOps  service.ContainerActionService
 	resourceOps   service.ResourceActionService
 }
@@ -35,6 +37,8 @@ func New(cfg config.Config) (*App, error) {
 		resources:     service.NewResourcesService(dockerClient),
 		monitoring:    service.NewMonitoringService(dockerClient),
 		settings:      service.NewSettingsService(cfg, dockerClient),
+		logs:          service.NewContainerLogsService(dockerClient),
+		terminal:      service.NewTerminalService(dockerClient),
 		containerOps:  service.NewContainerActionService(dockerClient, audit.NewLogRecorder(os.Stdout)),
 		resourceOps:   service.NewResourceActionService(dockerClient, audit.NewLogRecorder(os.Stdout)),
 	}, nil
@@ -46,6 +50,8 @@ func (a *App) Run(ctx context.Context) error {
 		ResourcesService:       a.resources,
 		MonitoringService:      a.monitoring,
 		SettingsService:        a.settings,
+		ContainerLogsService:   a.logs,
+		TerminalService:        a.terminal,
 		ContainerActionService: a.containerOps,
 		ResourceActionService:  a.resourceOps,
 	})

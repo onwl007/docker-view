@@ -188,6 +188,12 @@
 - `tail`
 - `timestamps`
 
+当前实现状态：
+
+- 已实现
+- 当前返回结构化日志条目数组
+- 当前支持 `stdout`、`stderr`、`since`、`until`、`tail`、`timestamps`
+
 ### `GET /api/v1/containers/{id}/logs/stream`
 
 SSE 日志流接口。
@@ -207,6 +213,11 @@ SSE 日志流接口。
   "message": "server started"
 }
 ```
+
+当前实现状态：
+
+- 已实现
+- 当前使用 SSE 输出 `log`、`error`、`eof`
 
 ## 3.4 Container Exec / Terminal
 
@@ -236,6 +247,11 @@ SSE 日志流接口。
 }
 ```
 
+当前实现状态：
+
+- 已实现
+- 当前支持 `command`、`user`、`privileged`、`tty`、`workingDir`、`env`、`cols`、`rows`
+
 ### `GET /api/v1/terminal/sessions/{sessionId}/ws`
 
 升级为 WebSocket，承载终端会话。
@@ -259,6 +275,11 @@ SSE 日志流接口。
 ```json
 { "type": "resize", "cols": 120, "rows": 40 }
 ```
+
+当前实现状态：
+
+- 已实现
+- 当前支持 `stdin`、`resize`、`close` 输入和 `stdout`、`stderr`、`exit`、`error` 输出
 
 ## 3.5 Images
 

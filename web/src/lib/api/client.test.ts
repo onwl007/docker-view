@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   createNetwork,
+  createTerminalSession,
   createVolume,
   deleteContainer,
   deleteImage,
   deleteNetwork,
   deleteVolume,
   fetchContainers,
+  fetchContainerLogs,
   fetchMonitoringContainers,
   fetchMonitoringHost,
   fetchSettings,
@@ -193,6 +195,33 @@ describe('fetchContainers', () => {
       expect.objectContaining({ method: 'DELETE' }),
     )
   })
+
+  it('fetches container logs and creates a terminal session', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: [{ stream: 'stdout', message: 'ready' }], meta: { total: 1 } }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { sessionId: 'exec_123', websocketPath: '/api/v1/terminal/sessions/exec_123/ws' } }), { status: 200 }),
+      )
+
+    const logs = await fetchContainerLogs('abc123', { tail: '50', timestamps: true })
+    const session = await createTerminalSession('abc123', { command: ['/bin/sh'], tty: true })
+
+    expect(logs.total).toBe(1)
+    expect(session.sessionId).toBe('exec_123')
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/containers/abc123/logs?tail=50&timestamps=true',
+      expect.anything(),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/containers/abc123/exec-sessions',
+      expect.objectContaining({ method: 'POST' }),
+    )
+  })
 })
 
 describe('monitoring and settings api helpers', () => {
@@ -271,4 +300,5 @@ describe('monitoring and settings api helpers', () => {
       expect.objectContaining({ method: 'PUT' }),
     )
   })
+
 })

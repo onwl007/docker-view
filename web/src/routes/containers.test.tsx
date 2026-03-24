@@ -19,6 +19,8 @@ describe('ContainerTableRow', () => {
               ports: ['80:80/tcp'],
             }}
             onAction={vi.fn()}
+            onOpenLogs={vi.fn()}
+            onOpenTerminal={vi.fn()}
           />
         </tbody>
       </table>,

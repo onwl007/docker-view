@@ -3,12 +3,15 @@ package http
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
+	"github.com/gorilla/websocket"
 	"github.com/wanglei/docker-view/internal/config"
 	"github.com/wanglei/docker-view/internal/service"
 )
@@ -18,6 +21,8 @@ type ServerOptions struct {
 	ResourcesService       service.ResourcesService
 	MonitoringService      service.MonitoringService
 	SettingsService        service.SettingsService
+	ContainerLogsService   service.ContainerLogsService
+	TerminalService        service.TerminalService
 	ContainerActionService service.ContainerActionService
 	ResourceActionService  service.ResourceActionService
 }
@@ -133,6 +138,41 @@ func New(cfg config.Config, opts ServerOptions) *http.Server {
 			Data: items.Items,
 			Meta: &responseMeta{Total: items.Total},
 		})
+	})
+
+	mux.HandleFunc("GET /api/v1/containers/{id}/logs", func(w http.ResponseWriter, r *http.Request) {
+		items, err := opts.ContainerLogsService.Logs(r.Context(), readLogsParams(r))
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, successResponse[[]service.ContainerLogEntry]{
+			Data: items,
+			Meta: &responseMeta{Total: len(items)},
+		})
+	})
+
+	mux.HandleFunc("GET /api/v1/containers/{id}/logs/stream", func(w http.ResponseWriter, r *http.Request) {
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			writeError(w, http.StatusInternalServerError, "internal_error", "streaming is not supported")
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+
+		err := opts.ContainerLogsService.Stream(r.Context(), readLogsParams(r), func(entry service.ContainerLogEntry) error {
+			return writeSSEEvent(w, flusher, "log", entry)
+		})
+		if err != nil {
+			_ = writeSSEEvent(w, flusher, "error", map[string]string{"message": serviceMessage(err)})
+			return
+		}
+
+		_ = writeSSEEvent(w, flusher, "eof", map[string]bool{"done": true})
 	})
 
 	mux.HandleFunc("/api/v1/images", func(w http.ResponseWriter, r *http.Request) {
@@ -283,6 +323,69 @@ func New(cfg config.Config, opts ServerOptions) *http.Server {
 		writeJSON(w, http.StatusOK, successResponse[map[string]bool]{
 			Data: map[string]bool{"success": true},
 		})
+	})
+
+	mux.HandleFunc("POST /api/v1/containers/{id}/exec-sessions", func(w http.ResponseWriter, r *http.Request) {
+		var payload struct {
+			Command    []string `json:"command"`
+			User       string   `json:"user"`
+			Privileged bool     `json:"privileged"`
+			TTY        *bool    `json:"tty"`
+			WorkingDir string   `json:"workingDir"`
+			Env        []string `json:"env"`
+			Cols       uint     `json:"cols"`
+			Rows       uint     `json:"rows"`
+		}
+
+		if err := decodeJSONBody(r, &payload); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_argument", err.Error())
+			return
+		}
+
+		tty := true
+		if payload.TTY != nil {
+			tty = *payload.TTY
+		}
+
+		session, err := opts.TerminalService.CreateSession(r.Context(), service.TerminalSessionParams{
+			ContainerID: r.PathValue("id"),
+			Command:     payload.Command,
+			User:        payload.User,
+			Privileged:  payload.Privileged,
+			TTY:         tty,
+			WorkingDir:  payload.WorkingDir,
+			Env:         payload.Env,
+			Cols:        payload.Cols,
+			Rows:        payload.Rows,
+			Audit:       requestAuditMetadata(r),
+		})
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, successResponse[service.TerminalSession]{Data: session})
+	})
+
+	upgrader := websocket.Upgrader{
+		ReadBufferSize:  4096,
+		WriteBufferSize: 4096,
+		CheckOrigin: func(_ *http.Request) bool {
+			return true
+		},
+	}
+
+	mux.HandleFunc("GET /api/v1/terminal/sessions/{sessionId}/ws", func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+
+		bridge := &terminalWebSocketBridge{conn: conn}
+		if err := opts.TerminalService.ProxySession(r.Context(), r.PathValue("sessionId"), bridge); err != nil {
+			_ = bridge.WriteOutput(service.TerminalOutput{Type: "error", Message: serviceMessage(err)})
+			_ = bridge.Close()
+		}
 	})
 
 	mux.HandleFunc("POST /api/v1/images/pull", func(w http.ResponseWriter, r *http.Request) {
@@ -499,10 +602,57 @@ func decodeJSONBody(r *http.Request, target any) error {
 	return nil
 }
 
+func readLogsParams(r *http.Request) service.ContainerLogsParams {
+	stdout, err := parseOptionalBoolDefaultTrue(r.URL.Query().Get("stdout"))
+	if err != nil {
+		stdout = true
+	}
+	stderr, err := parseOptionalBoolDefaultTrue(r.URL.Query().Get("stderr"))
+	if err != nil {
+		stderr = true
+	}
+	timestamps, err := parseOptionalBoolDefaultTrue(r.URL.Query().Get("timestamps"))
+	if err != nil {
+		timestamps = true
+	}
+
+	tail := r.URL.Query().Get("tail")
+	if tail == "" {
+		tail = "200"
+	}
+
+	return service.ContainerLogsParams{
+		ContainerID: r.PathValue("id"),
+		Stdout:      stdout,
+		Stderr:      stderr,
+		Since:       r.URL.Query().Get("since"),
+		Until:       r.URL.Query().Get("until"),
+		Tail:        tail,
+		Timestamps:  timestamps,
+	}
+}
+
+func writeSSEEvent(w http.ResponseWriter, flusher http.Flusher, event string, payload any) error {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	if _, err := fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, body); err != nil {
+		return err
+	}
+	flusher.Flush()
+	return nil
+}
+
 func writeServiceError(w http.ResponseWriter, err error) {
 	switch serviceCode(err) {
 	case "not_found":
 		writeError(w, http.StatusNotFound, "not_found", serviceMessage(err))
+	case "terminal_session_not_found":
+		writeError(w, http.StatusNotFound, "terminal_session_not_found", serviceMessage(err))
+	case "terminal_session_closed":
+		writeError(w, http.StatusConflict, "terminal_session_closed", serviceMessage(err))
 	case "conflict":
 		writeError(w, http.StatusConflict, "conflict", serviceMessage(err))
 	case "invalid_argument":
@@ -544,6 +694,29 @@ func requestAuditMetadata(r *http.Request) service.AuditMetadata {
 		Source:    r.RemoteAddr,
 		UserAgent: r.UserAgent(),
 	}
+}
+
+type terminalWebSocketBridge struct {
+	conn *websocket.Conn
+	mu   sync.Mutex
+}
+
+func (b *terminalWebSocketBridge) ReadInput() (service.TerminalInput, error) {
+	var input service.TerminalInput
+	if err := b.conn.ReadJSON(&input); err != nil {
+		return service.TerminalInput{}, err
+	}
+	return input, nil
+}
+
+func (b *terminalWebSocketBridge) WriteOutput(output service.TerminalOutput) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.conn.WriteJSON(output)
+}
+
+func (b *terminalWebSocketBridge) Close() error {
+	return b.conn.Close()
 }
 
 func spaHandler(webDir string) http.Handler {

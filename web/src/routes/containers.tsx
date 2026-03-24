@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { Box, Pause, Play, RefreshCw, Trash2 } from 'lucide-react'
+import { Box, Pause, Play, RefreshCw, Terminal, TextSearch, Trash2 } from 'lucide-react'
 import {
   MetricCard,
   ModalFooter,
@@ -164,6 +164,8 @@ export function ContainersPage() {
                     row={row}
                     busy={activeMutation && isBusyForRow === row.id}
                     onAction={(kind) => setPendingAction({ kind, row })}
+                    onOpenLogs={() => void navigate({ to: '/containers/$containerId/logs', params: { containerId: row.id } })}
+                    onOpenTerminal={() => void navigate({ to: '/containers/$containerId/terminal', params: { containerId: row.id } })}
                   />
                 ))}
               </tbody>
@@ -193,10 +195,14 @@ export function ContainersPage() {
 export function ContainerTableRow({
   row,
   onAction,
+  onOpenLogs,
+  onOpenTerminal,
   busy,
 }: {
   row: ContainerListItem
   onAction: (kind: ActionKind) => void
+  onOpenLogs: () => void
+  onOpenTerminal: () => void
   busy?: boolean
 }) {
   const state = normalizeContainerState(row.state)
@@ -240,6 +246,14 @@ export function ContainerTableRow({
           <Button size="sm" variant="ghost" disabled={busy} onClick={() => onAction('restart')}>
             <RefreshCw className="h-3.5 w-3.5" />
             Restart
+          </Button>
+          <Button size="sm" variant="ghost" disabled={busy} onClick={onOpenLogs}>
+            <TextSearch className="h-3.5 w-3.5" />
+            Logs
+          </Button>
+          <Button size="sm" variant="ghost" disabled={busy} onClick={onOpenTerminal}>
+            <Terminal className="h-3.5 w-3.5" />
+            Terminal
           </Button>
           <Button size="sm" variant="ghost" disabled={busy} onClick={() => onAction('delete')} className="text-[#b24b4b] hover:text-[#b24b4b]">
             <Trash2 className="h-3.5 w-3.5" />
