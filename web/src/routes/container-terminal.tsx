@@ -25,15 +25,21 @@ interface TerminalMessage {
 export function ContainerTerminalPage() {
   const { containerId } = useParams({ from: '/containers/$containerId/terminal' })
   const socketRef = useRef<WebSocket | null>(null)
+  const connectAttemptRef = useRef(0)
   const [status, setStatus] = useState<TerminalStatus>('idle')
   const [output, setOutput] = useState<string[]>([])
   const [command, setCommand] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
-    void connect()
+    const timerId = window.setTimeout(() => {
+      setOutput([])
+      void connect()
+    }, 0)
 
     return () => {
+      window.clearTimeout(timerId)
+      connectAttemptRef.current += 1
       socketRef.current?.close()
       socketRef.current = null
     }
@@ -42,10 +48,13 @@ export function ContainerTerminalPage() {
   }, [containerId])
 
   async function connect() {
+    const attempt = connectAttemptRef.current + 1
+    connectAttemptRef.current = attempt
     socketRef.current?.close()
     socketRef.current = null
     setStatus('connecting')
     setErrorMessage('')
+    setOutput([])
 
     try {
       const session = await createTerminalSession(containerId, {
@@ -54,16 +63,25 @@ export function ContainerTerminalPage() {
         cols: 120,
         rows: 32,
       })
+      if (connectAttemptRef.current !== attempt) {
+        return
+      }
 
       const socket = new WebSocket(buildWebSocketUrl(session.websocketPath))
       socketRef.current = socket
 
       socket.onopen = () => {
+        if (connectAttemptRef.current !== attempt) {
+          return
+        }
         setStatus('ready')
         socket.send(JSON.stringify({ type: 'resize', cols: 120, rows: 32 }))
       }
 
       socket.onmessage = (event) => {
+        if (connectAttemptRef.current !== attempt) {
+          return
+        }
         const payload = JSON.parse(event.data) as TerminalMessage
         if (payload.type === 'stdout' || payload.type === 'stderr') {
           setOutput((current) => [...current, payload.data ?? ''])
@@ -83,14 +101,23 @@ export function ContainerTerminalPage() {
       }
 
       socket.onerror = () => {
+        if (connectAttemptRef.current !== attempt) {
+          return
+        }
         setStatus('error')
         setErrorMessage('Terminal socket failed.')
       }
 
       socket.onclose = () => {
+        if (connectAttemptRef.current !== attempt) {
+          return
+        }
         setStatus((current) => (current === 'error' ? current : 'closed'))
       }
     } catch (error) {
+      if (connectAttemptRef.current !== attempt) {
+        return
+      }
       setStatus('error')
       setErrorMessage(error instanceof Error ? error.message : 'Failed to create terminal session.')
     }

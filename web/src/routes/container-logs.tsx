@@ -14,6 +14,7 @@ import {
   type ContainerLogEntry,
 } from '@/lib/api/client'
 import { formatRelativeTime } from '@/lib/display'
+import { buildLiveLogsStreamPath } from '@/features/resources/log-stream'
 
 const LOG_TAIL = '200'
 
@@ -23,53 +24,103 @@ export function ContainerLogsPage() {
 }
 
 function ContainerLogsView({ containerId }: { containerId: string }) {
-  const [liveEntries, setLiveEntries] = useState<ContainerLogEntry[]>([])
-  const [streamStatus, setStreamStatus] = useState<'connecting' | 'ready' | 'closed' | 'error'>('connecting')
-  const [streamError, setStreamError] = useState('')
+  const [streamState, setStreamState] = useState<{
+    key: string
+    entries: ContainerLogEntry[]
+    status: 'connecting' | 'ready' | 'closed' | 'error'
+    error: string
+  }>({
+    key: '',
+    entries: [],
+    status: 'connecting',
+    error: '',
+  })
 
   const logsQuery = useQuery({
     queryKey: ['containers', containerId, 'logs', { tail: LOG_TAIL }],
     queryFn: () => fetchContainerLogs(containerId, { tail: LOG_TAIL, timestamps: true }),
   })
 
+  const latestTimestamp = useMemo(() => {
+    const items = logsQuery.data?.items ?? []
+    for (let index = items.length - 1; index >= 0; index -= 1) {
+      const timestamp = items[index]?.timestamp
+      if (timestamp) {
+        return timestamp
+      }
+    }
+    return undefined
+  }, [logsQuery.data?.items])
+
+  const streamKey = `${containerId}:${latestTimestamp ?? 'origin'}`
+  const activeStreamState = streamState.key === streamKey
+    ? streamState
+    : {
+        key: streamKey,
+        entries: [],
+        status: 'connecting' as const,
+        error: '',
+      }
+
   useEffect(() => {
+    if (!logsQuery.data || logsQuery.error) {
+      return
+    }
+
     const source = new EventSource(
-      buildApiUrl(`/api/v1/containers/${containerId}/logs/stream?tail=${LOG_TAIL}&timestamps=true`),
+      buildApiUrl(buildLiveLogsStreamPath(containerId, latestTimestamp)),
     )
 
     source.addEventListener('log', (event) => {
       const payload = JSON.parse((event as MessageEvent<string>).data) as ContainerLogEntry
-      setLiveEntries((current) => [...current, payload])
-      setStreamStatus('ready')
+      setStreamState((current) => ({
+        key: streamKey,
+        entries: current.key === streamKey ? [...current.entries, payload] : [payload],
+        status: 'ready',
+        error: '',
+      }))
     })
 
     source.addEventListener('error', (event) => {
       const payload = JSON.parse((event as MessageEvent<string>).data) as { message?: string }
-      setStreamStatus('error')
-      setStreamError(payload.message ?? 'Log stream failed.')
+      setStreamState((current) => ({
+        key: current.key === streamKey ? current.key : streamKey,
+        entries: current.key === streamKey ? current.entries : [],
+        status: 'error',
+        error: payload.message ?? 'Log stream failed.',
+      }))
       source.close()
     })
 
     source.addEventListener('eof', () => {
-      setStreamStatus('closed')
+      setStreamState((current) => ({
+        key: current.key === streamKey ? current.key : streamKey,
+        entries: current.key === streamKey ? current.entries : [],
+        status: 'closed',
+        error: '',
+      }))
       source.close()
     })
 
     source.onerror = () => {
-      setStreamStatus('error')
-      setStreamError('Log stream disconnected.')
+      setStreamState((current) => ({
+        key: current.key === streamKey ? current.key : streamKey,
+        entries: current.key === streamKey ? current.entries : [],
+        status: 'error',
+        error: 'Log stream disconnected.',
+      }))
       source.close()
     }
 
     return () => {
       source.close()
     }
-  }, [containerId])
+  }, [containerId, latestTimestamp, logsQuery.data, logsQuery.error, streamKey])
 
   const entries = useMemo(() => {
     const initial = logsQuery.data?.items ?? []
-    return [...initial, ...liveEntries]
-  }, [liveEntries, logsQuery.data?.items])
+    return [...initial, ...activeStreamState.entries]
+  }, [activeStreamState.entries, logsQuery.data?.items])
 
   return (
     <div className="space-y-3">
@@ -84,15 +135,15 @@ function ContainerLogsView({ containerId }: { containerId: string }) {
         }
       />
 
-      {streamError ? (
-        <PageSection className="px-4 py-3 text-sm text-[#b24b4b]">{streamError}</PageSection>
+      {activeStreamState.error ? (
+        <PageSection className="px-4 py-3 text-sm text-[#b24b4b]">{activeStreamState.error}</PageSection>
       ) : null}
 
       <PageSection className="flex flex-col">
         <SectionHeading
           icon={TextSearch}
           title="Log Output"
-          description={`Stream status: ${streamStatus}`}
+          description={`Stream status: ${activeStreamState.status}`}
         />
         <div className="space-y-3 px-4 py-4">
           {logsQuery.isLoading ? <div className="text-sm text-[#8b8b8b]">Loading container logs...</div> : null}

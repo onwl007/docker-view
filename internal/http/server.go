@@ -1027,7 +1027,5 @@ func serveIndex(w http.ResponseWriter, r *http.Request, webDir string, fileServe
 		return
 	}
 
-	req := r.Clone(r.Context())
-	req.URL.Path = "/index.html"
-	fileServer.ServeHTTP(w, req)
+	http.ServeFile(w, r, indexPath)
 }

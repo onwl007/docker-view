@@ -6,6 +6,8 @@ import (
 	"errors"
 	nethttp "net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -222,6 +224,41 @@ func TestComposeProjectsList(t *testing.T) {
 
 	if location := rec.Header().Get("Location"); location != "" {
 		t.Fatalf("expected no redirect, got location %q", location)
+	}
+}
+
+func TestRootServesFrontendIndexWithoutRedirect(t *testing.T) {
+	webDir := t.TempDir()
+	indexPath := filepath.Join(webDir, "index.html")
+	if err := os.WriteFile(indexPath, []byte("<!doctype html><title>docker-view</title>"), 0o644); err != nil {
+		t.Fatalf("write index.html: %v", err)
+	}
+
+	server := New(config.Config{
+		HTTP: config.HTTPConfig{Addr: ":8080"},
+		Web:  config.WebConfig{Dir: webDir},
+	}, ServerOptions{
+		SystemSummaryService:  stubSummaryService{},
+		MonitoringService:     stubMonitoringService{},
+		SettingsService:       stubSettingsService{},
+		ResourceActionService: stubResourceActionService{},
+	})
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+
+	server.Handler.ServeHTTP(rec, req)
+
+	if rec.Code != nethttp.StatusOK {
+		t.Fatalf("expected status %d, got %d", nethttp.StatusOK, rec.Code)
+	}
+
+	if location := rec.Header().Get("Location"); location != "" {
+		t.Fatalf("expected no redirect, got location %q", location)
+	}
+
+	if !strings.Contains(rec.Body.String(), "docker-view") {
+		t.Fatalf("expected frontend index body, got %q", rec.Body.String())
 	}
 }
 
