@@ -1,6 +1,7 @@
 import {
   Activity,
   Container,
+  Layers3,
   Gauge,
   HardDrive,
   Image as ImageIcon,
@@ -18,6 +19,7 @@ export const navigationSections = [
       { to: '/images', label: 'Images', icon: ImageIcon },
       { to: '/volumes', label: 'Volumes', icon: HardDrive },
       { to: '/networks', label: 'Networks', icon: Network },
+      { to: '/compose', label: 'Compose', icon: Layers3 },
     ],
   },
   {

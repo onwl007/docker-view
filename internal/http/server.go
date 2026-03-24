@@ -19,12 +19,14 @@ import (
 type ServerOptions struct {
 	SystemSummaryService   service.SystemSummaryService
 	ResourcesService       service.ResourcesService
+	ComposeService         service.ComposeProjectService
 	MonitoringService      service.MonitoringService
 	SettingsService        service.SettingsService
 	ContainerLogsService   service.ContainerLogsService
 	TerminalService        service.TerminalService
 	ContainerActionService service.ContainerActionService
 	ResourceActionService  service.ResourceActionService
+	ComposeActionService   service.ComposeProjectActionService
 }
 
 func New(cfg config.Config, opts ServerOptions) *http.Server {
@@ -138,6 +140,72 @@ func New(cfg config.Config, opts ServerOptions) *http.Server {
 			Data: items.Items,
 			Meta: &responseMeta{Total: items.Total},
 		})
+	})
+
+	mux.HandleFunc("/api/v1/compose/projects", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+			return
+		}
+
+		items, err := opts.ComposeService.Projects(r.Context(), service.ComposeProjectListParams{
+			Query: r.URL.Query().Get("q"),
+		})
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, successResponse[[]service.ComposeProjectListItem]{
+			Data: items.Items,
+			Meta: &responseMeta{Total: items.Total},
+		})
+	})
+
+	mux.HandleFunc("GET /api/v1/compose/projects/{name}", func(w http.ResponseWriter, r *http.Request) {
+		project, err := opts.ComposeService.Project(r.Context(), r.PathValue("name"))
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, successResponse[service.ComposeProjectDetail]{Data: project})
+	})
+
+	mux.HandleFunc("POST /api/v1/compose/projects/{name}/start", func(w http.ResponseWriter, r *http.Request) {
+		if err := opts.ComposeActionService.Start(r.Context(), r.PathValue("name"), requestAuditMetadata(r)); err != nil {
+			writeServiceError(w, err)
+			return
+		}
+
+		writeActionSuccess(w)
+	})
+
+	mux.HandleFunc("POST /api/v1/compose/projects/{name}/stop", func(w http.ResponseWriter, r *http.Request) {
+		if err := opts.ComposeActionService.Stop(r.Context(), r.PathValue("name"), requestAuditMetadata(r)); err != nil {
+			writeServiceError(w, err)
+			return
+		}
+
+		writeActionSuccess(w)
+	})
+
+	mux.HandleFunc("POST /api/v1/compose/projects/{name}/recreate", func(w http.ResponseWriter, r *http.Request) {
+		if err := opts.ComposeActionService.Recreate(r.Context(), r.PathValue("name"), requestAuditMetadata(r)); err != nil {
+			writeServiceError(w, err)
+			return
+		}
+
+		writeActionSuccess(w)
+	})
+
+	mux.HandleFunc("DELETE /api/v1/compose/projects/{name}", func(w http.ResponseWriter, r *http.Request) {
+		if err := opts.ComposeActionService.Delete(r.Context(), r.PathValue("name"), requestAuditMetadata(r)); err != nil {
+			writeServiceError(w, err)
+			return
+		}
+
+		writeActionSuccess(w)
 	})
 
 	mux.HandleFunc("GET /api/v1/containers/{id}/logs", func(w http.ResponseWriter, r *http.Request) {

@@ -10,7 +10,8 @@
 - `Phase 3` 已完成“核心资源写操作第一版 + 最小审计接入 + 前端确认/反馈/缓存失效”这一主链路
 - `Phase 4` 已完成 Monitoring 与 Settings 的首版主链路
 - `Phase 5` 已完成 Logs SSE 与 Terminal WebSocket 的首版主链路
-- `Phase 6` 及之后阶段尚未开始
+- `Phase 6` 已完成 Compose 项目识别、列表、详情和项目级操作的首版主链路
+- `Phase 7` 及之后阶段尚未开始
 
 当前已落地的 REST 能力包括：
 
@@ -39,6 +40,12 @@
 - `GET /api/v1/containers/{id}/logs/stream`
 - `POST /api/v1/containers/{id}/exec-sessions`
 - `GET /api/v1/terminal/sessions/{sessionId}/ws`
+- `GET /api/v1/compose/projects`
+- `GET /api/v1/compose/projects/{name}`
+- `POST /api/v1/compose/projects/{name}/start`
+- `POST /api/v1/compose/projects/{name}/stop`
+- `POST /api/v1/compose/projects/{name}/recreate`
+- `DELETE /api/v1/compose/projects/{name}`
 
 ## 1. 路线原则
 
@@ -404,7 +411,20 @@
 
 ### 7.0 当前判定
 
-- 状态：未开始
+- 状态：部分完成
+- 已完成：
+  - `GET /api/v1/compose/projects`
+  - `GET /api/v1/compose/projects/{name}`
+  - `POST /api/v1/compose/projects/{name}/start`
+  - `POST /api/v1/compose/projects/{name}/stop`
+  - `POST /api/v1/compose/projects/{name}/recreate`
+  - `DELETE /api/v1/compose/projects/{name}`
+  - 基于标准 Compose 标签的项目识别与聚合
+  - Compose 列表页、详情页和项目级操作入口
+- 未完成：
+  - 基于 Compose 文件源的真正 `up / down / recreate` 语义
+  - 外部网络、命名卷等更细粒度的项目边界处理
+  - Dashboard 中的 Compose 项目摘要卡片
 
 ### 7.1 目标
 
@@ -421,17 +441,29 @@
   - `POST /api/v1/compose/projects/{name}/recreate`
   - `DELETE /api/v1/compose/projects/{name}`
   - Compose 项目识别与操作编排 service
+  - 当前实现状态：
+    - 上述接口、service、handler 和 DTO 已实现
+    - 当前项目识别基于 `com.docker.compose.project` 和 `com.docker.compose.service` 标签
+    - 当前 `recreate` 为项目内容器批量 `restart`
+    - 当前 `delete` 删除项目内容器和带 Compose 项目标记的网络，保留卷
 
 - 前端：
   - Compose 列表页
   - Compose 详情页
   - 项目级操作入口和状态反馈
   - 项目与资源关系展示
+  - 当前实现状态：
+    - Compose 列表页和详情页已接入真实 API
+    - 列表页支持搜索、项目级 `start / stop / recreate / delete`
+    - 详情页展示服务、容器、网络、卷摘要，并支持同样的项目级动作
 
 - 交互：
   - 项目列表和详情查询
   - 项目级操作 mutation
   - 项目状态变化后的缓存失效与视图刷新
+  - 当前实现状态：
+    - Compose 列表与详情 query 已接入 TanStack Query
+    - 项目级动作成功后会失效 `compose/projects`、对应详情 query 和 `system/summary`
 
 ### 7.3 依赖与前置条件
 
@@ -446,6 +478,12 @@
 - 错误场景具备统一处理
 - Compose 能力具备前端和后端单元测试
 - 当前累计覆盖率维持在 90% 以上
+
+当前剩余收尾项：
+
+- 评估是否需要引入 Compose CLI 或 Compose spec 解析，以支持真正的 `up / down / recreate`
+- 为项目删除补充更细的卷和外部网络策略
+- 视需要把 Compose 项目统计并入 Dashboard
 
 ## 8. Phase 7: 安全、可运维性与交付收口
 

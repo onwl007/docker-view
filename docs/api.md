@@ -531,25 +531,56 @@ SSE 日志流接口。
 
 返回 Compose 项目列表。
 
+当前实现状态：
+
+- 已实现
+- 当前基于 `com.docker.compose.project` 标签聚合项目
+- 当前返回项目状态、容器计数、服务、网络、卷和创建时间摘要
+
 ### `GET /api/v1/compose/projects/{name}`
 
 返回项目详情和关联容器、网络、卷信息。
+
+当前实现状态：
+
+- 已实现
+- 当前返回项目摘要以及项目内容器列表
+- 当前容器详情字段包含 `service`、`image`、`state`、`status`、`createdAt`
 
 ### `POST /api/v1/compose/projects/{name}/start`
 
 启动项目。
 
+当前实现状态：
+
+- 已实现
+
 ### `POST /api/v1/compose/projects/{name}/stop`
 
 停止项目。
+
+当前实现状态：
+
+- 已实现
 
 ### `POST /api/v1/compose/projects/{name}/recreate`
 
 重建项目。
 
+当前实现状态：
+
+- 已实现
+- 当前首版语义为批量重启项目内已识别容器，不基于 Compose 文件重建
+
 ### `DELETE /api/v1/compose/projects/{name}`
 
 删除项目及其关联资源，具体删除策略必须受请求参数控制。
+
+当前实现状态：
+
+- 已实现
+- 当前删除项目内已识别容器和带 Compose 项目标记的网络
+- 当前默认保留卷，避免误删数据
 
 ## 4. 前端协作约定
 

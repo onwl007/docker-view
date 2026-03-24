@@ -17,12 +17,14 @@ type App struct {
 	cfg           config.Config
 	systemSummary service.SystemSummaryService
 	resources     service.ResourcesService
+	compose       service.ComposeProjectService
 	monitoring    service.MonitoringService
 	settings      service.SettingsService
 	logs          service.ContainerLogsService
 	terminal      service.TerminalService
 	containerOps  service.ContainerActionService
 	resourceOps   service.ResourceActionService
+	composeOps    service.ComposeProjectActionService
 }
 
 func New(cfg config.Config) (*App, error) {
@@ -35,12 +37,14 @@ func New(cfg config.Config) (*App, error) {
 		cfg:           cfg,
 		systemSummary: service.NewSystemSummaryService(dockerClient),
 		resources:     service.NewResourcesService(dockerClient),
+		compose:       service.NewComposeProjectService(dockerClient),
 		monitoring:    service.NewMonitoringService(dockerClient),
 		settings:      service.NewSettingsService(cfg, dockerClient),
 		logs:          service.NewContainerLogsService(dockerClient),
 		terminal:      service.NewTerminalService(dockerClient),
 		containerOps:  service.NewContainerActionService(dockerClient, audit.NewLogRecorder(os.Stdout)),
 		resourceOps:   service.NewResourceActionService(dockerClient, audit.NewLogRecorder(os.Stdout)),
+		composeOps:    service.NewComposeProjectActionService(dockerClient, audit.NewLogRecorder(os.Stdout)),
 	}, nil
 }
 
@@ -48,12 +52,14 @@ func (a *App) Run(ctx context.Context) error {
 	server := serverhttp.New(a.cfg, serverhttp.ServerOptions{
 		SystemSummaryService:   a.systemSummary,
 		ResourcesService:       a.resources,
+		ComposeService:         a.compose,
 		MonitoringService:      a.monitoring,
 		SettingsService:        a.settings,
 		ContainerLogsService:   a.logs,
 		TerminalService:        a.terminal,
 		ContainerActionService: a.containerOps,
 		ResourceActionService:  a.resourceOps,
+		ComposeActionService:   a.composeOps,
 	})
 
 	go func() {

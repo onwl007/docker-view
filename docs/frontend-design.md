@@ -475,7 +475,7 @@ web/src/
 - 当前读请求已经通过 query 托管
 - 当前写操作已经通过 mutation 执行
 - mutation 成功后会失效对应资源列表与 `['system', 'summary']`
-- 轮询、SSE、WebSocket 相关策略尚未落地
+- Monitoring 轮询、Logs SSE、Terminal WebSocket 与 Compose 项目级 mutation 已落地
 
 ### 8.2 Query Key 建议
 
@@ -500,7 +500,7 @@ web/src/
 - 已实际使用 `['monitoring', 'containers']`
 - 已实际使用 `['settings']`
 - 已实际使用 containers、images、volumes、networks 对应列表 key
-- 详情、compose key 仍属预留
+- 已实际使用 compose 列表和 compose 详情 key
 
 ### 8.3 路由 loader 约定
 

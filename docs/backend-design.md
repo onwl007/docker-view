@@ -261,7 +261,9 @@ pkg/
 
 当前实现状态：
 
-- 未实现
+- 已实现基于 Compose 标签的项目识别、列表、详情和项目级操作编排
+- 当前 `recreate` 为项目内容器批量 `restart`
+- 当前 `delete` 删除项目内容器和带 Compose 项目标记的网络，保留卷
 
 ### 5.7 Settings Service
 
@@ -342,8 +344,8 @@ Gateway 层必须把业务层和 Docker SDK 细节隔离开，避免：
 
 当前实现状态：
 
-- 已实际形成 system summary、resource list、resource mutation 三组 gateway 能力
-- monitoring、compose、exec、log gateway 尚未开始
+- 已实际形成 system summary、resource list、resource mutation、monitoring、exec、log 与 compose 项目聚合能力
+- compose 当前复用现有 resource 和 mutation gateway 组合实现，而不是独立 Docker Compose CLI gateway
 
 ### 6.3 返回模型原则
 

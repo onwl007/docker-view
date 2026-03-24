@@ -6,6 +6,9 @@ import {
 import type { QueryClient } from '@tanstack/react-query'
 import { systemSummaryQueryOptions } from '@/features/dashboard/query-options'
 import {
+  composeProjectDetailQueryOptions,
+} from '@/features/compose/query-options'
+import {
   monitoringContainersQueryOptions,
   monitoringHostQueryOptions,
 } from '@/features/monitoring/query-options'
@@ -14,6 +17,8 @@ import {
 } from '@/features/resources/query-options'
 import { settingsQueryOptions } from '@/features/settings/query-options'
 import { validateTextSearch } from '@/lib/search'
+import { ComposeProjectDetailPage } from '@/routes/compose-project'
+import { ComposeProjectsPage } from '@/routes/compose'
 import { ContainerLogsPage } from '@/routes/container-logs'
 import { ContainerTerminalPage } from '@/routes/container-terminal'
 import { ContainersPage } from '@/routes/containers'
@@ -85,6 +90,24 @@ const networksRoute = createRoute({
   component: NetworksPage,
 })
 
+const composeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/compose',
+  validateSearch: validateTextSearch,
+  component: ComposeProjectsPage,
+})
+
+const composeProjectRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/compose/$projectName',
+  loader: async ({ context, params }) => {
+    await context.queryClient.prefetchQuery(
+      composeProjectDetailQueryOptions(params.projectName),
+    )
+  },
+  component: ComposeProjectDetailPage,
+})
+
 const monitoringRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/monitoring',
@@ -114,6 +137,8 @@ const routeTree = rootRoute.addChildren([
   imagesRoute,
   volumesRoute,
   networksRoute,
+  composeRoute,
+  composeProjectRoute,
   monitoringRoute,
   settingsRoute,
 ])

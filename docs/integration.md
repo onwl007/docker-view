@@ -218,6 +218,20 @@ Query 策略建议：
 - `POST /api/v1/compose/projects/{name}/recreate`
 - `DELETE /api/v1/compose/projects/{name}`
 
+前端失效策略：
+
+- 项目级动作成功后失效 `['compose', 'projects']`
+- 若当前处于详情页，同时失效 `['compose', 'projects', name]`
+- 若 Dashboard 后续展示 Compose 摘要，同时失效 `['system', 'summary']`
+
+当前实现状态：
+
+- 上述接口已实现
+- 前端已接入 Compose 列表页、详情页和项目级确认操作
+- 当前项目识别基于 Compose 标签聚合容器、网络、卷
+- 当前 `recreate` 实现为项目内容器批量重启
+- 当前 `delete` 删除容器和 Compose 标记网络，保留卷
+
 ## 6. 实时交互
 
 ## 6.1 日志 SSE

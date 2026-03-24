@@ -188,6 +188,60 @@ func TestContainerStart(t *testing.T) {
 	}
 }
 
+func TestComposeProjectsList(t *testing.T) {
+	server := New(config.Config{
+		HTTP: config.HTTPConfig{Addr: ":8080"},
+	}, ServerOptions{
+		SystemSummaryService: stubSummaryService{},
+		ComposeService: stubComposeService{
+			projects: service.ListResult[service.ComposeProjectListItem]{
+				Items: []service.ComposeProjectListItem{{
+					Name:           "edge",
+					Status:         "running",
+					ContainerCount: 2,
+				}},
+				Total: 1,
+			},
+		},
+		MonitoringService:     stubMonitoringService{},
+		SettingsService:       stubSettingsService{},
+		ResourceActionService: stubResourceActionService{},
+		ComposeActionService:  stubComposeActionService{},
+	})
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v1/compose/projects?q=edge", nil)
+	rec := httptest.NewRecorder()
+
+	server.Handler.ServeHTTP(rec, req)
+
+	if rec.Code != nethttp.StatusOK {
+		t.Fatalf("expected status %d, got %d", nethttp.StatusOK, rec.Code)
+	}
+}
+
+func TestComposeProjectStart(t *testing.T) {
+	server := New(config.Config{
+		HTTP: config.HTTPConfig{Addr: ":8080"},
+	}, ServerOptions{
+		SystemSummaryService:   stubSummaryService{},
+		ComposeService:         stubComposeService{},
+		MonitoringService:      stubMonitoringService{},
+		SettingsService:        stubSettingsService{},
+		ContainerActionService: stubContainerActionService{},
+		ResourceActionService:  stubResourceActionService{},
+		ComposeActionService:   stubComposeActionService{},
+	})
+
+	req := httptest.NewRequest(nethttp.MethodPost, "/api/v1/compose/projects/edge/start", nil)
+	rec := httptest.NewRecorder()
+
+	server.Handler.ServeHTTP(rec, req)
+
+	if rec.Code != nethttp.StatusOK {
+		t.Fatalf("expected status %d, got %d", nethttp.StatusOK, rec.Code)
+	}
+}
+
 func TestImagePull(t *testing.T) {
 	server := New(config.Config{
 		HTTP: config.HTTPConfig{Addr: ":8080"},
@@ -332,6 +386,12 @@ type stubResourcesService struct {
 	err        error
 }
 
+type stubComposeService struct {
+	projects service.ListResult[service.ComposeProjectListItem]
+	project  service.ComposeProjectDetail
+	err      error
+}
+
 type stubContainerActionService struct {
 	err error
 }
@@ -363,6 +423,10 @@ type stubResourceActionService struct {
 	err error
 }
 
+type stubComposeActionService struct {
+	err error
+}
+
 func (s stubSummaryService) Summary(_ context.Context) (service.SystemSummary, error) {
 	if s.err != nil {
 		return service.SystemSummary{}, s.err
@@ -387,6 +451,14 @@ func (s stubResourcesService) Volumes(_ context.Context, _ service.VolumeListPar
 
 func (s stubResourcesService) Networks(_ context.Context, _ service.NetworkListParams) (service.ListResult[service.NetworkListItem], error) {
 	return service.ListResult[service.NetworkListItem]{}, s.err
+}
+
+func (s stubComposeService) Projects(_ context.Context, _ service.ComposeProjectListParams) (service.ListResult[service.ComposeProjectListItem], error) {
+	return s.projects, s.err
+}
+
+func (s stubComposeService) Project(_ context.Context, _ string) (service.ComposeProjectDetail, error) {
+	return s.project, s.err
 }
 
 func (s stubMonitoringService) Host(_ context.Context) (service.MonitoringHost, error) {
@@ -466,5 +538,21 @@ func (s stubResourceActionService) CreateNetwork(_ context.Context, _ service.Ne
 }
 
 func (s stubResourceActionService) DeleteNetwork(_ context.Context, _ service.NetworkDeleteParams) error {
+	return s.err
+}
+
+func (s stubComposeActionService) Start(_ context.Context, _ string, _ service.AuditMetadata) error {
+	return s.err
+}
+
+func (s stubComposeActionService) Stop(_ context.Context, _ string, _ service.AuditMetadata) error {
+	return s.err
+}
+
+func (s stubComposeActionService) Recreate(_ context.Context, _ string, _ service.AuditMetadata) error {
+	return s.err
+}
+
+func (s stubComposeActionService) Delete(_ context.Context, _ string, _ service.AuditMetadata) error {
 	return s.err
 }

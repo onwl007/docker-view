@@ -163,6 +163,33 @@ export interface MonitoringContainer {
   pids: number
 }
 
+export interface ComposeProjectListItem {
+  name: string
+  status: 'running' | 'stopped' | 'partial' | 'inactive'
+  createdAt: string
+  containerCount: number
+  runningCount: number
+  stoppedCount: number
+  services: string[]
+  networks: string[]
+  volumes: string[]
+}
+
+export interface ComposeProjectContainer {
+  id: string
+  shortId: string
+  name: string
+  service?: string
+  image: string
+  state: 'running' | 'stopped' | 'partial' | 'inactive'
+  status: string
+  createdAt: string
+}
+
+export interface ComposeProjectDetail extends ComposeProjectListItem {
+  containers: ComposeProjectContainer[]
+}
+
 export interface SettingsState {
   docker: {
     host: string
@@ -294,6 +321,14 @@ export async function fetchMonitoringHost(): Promise<MonitoringHost> {
   return requestObject<MonitoringHost>('/api/v1/monitoring/host')
 }
 
+export async function fetchComposeProjects(query?: string): Promise<ListResult<ComposeProjectListItem>> {
+  return requestList<ComposeProjectListItem>('/api/v1/compose/projects', query ? { q: query } : undefined)
+}
+
+export async function fetchComposeProject(name: string): Promise<ComposeProjectDetail> {
+  return requestObject<ComposeProjectDetail>(`/api/v1/compose/projects/${encodeURIComponent(name)}`)
+}
+
 export async function fetchMonitoringContainers(): Promise<ListResult<MonitoringContainer>> {
   return requestList<MonitoringContainer>('/api/v1/monitoring/containers')
 }
@@ -396,6 +431,30 @@ export async function createNetwork(input: {
 
 export async function deleteNetwork(id: string): Promise<ActionSuccess> {
   return requestAction(`/api/v1/networks/${id}`, {
+    method: 'DELETE',
+  })
+}
+
+export async function startComposeProject(name: string): Promise<ActionSuccess> {
+  return requestAction(`/api/v1/compose/projects/${encodeURIComponent(name)}/start`, {
+    method: 'POST',
+  })
+}
+
+export async function stopComposeProject(name: string): Promise<ActionSuccess> {
+  return requestAction(`/api/v1/compose/projects/${encodeURIComponent(name)}/stop`, {
+    method: 'POST',
+  })
+}
+
+export async function recreateComposeProject(name: string): Promise<ActionSuccess> {
+  return requestAction(`/api/v1/compose/projects/${encodeURIComponent(name)}/recreate`, {
+    method: 'POST',
+  })
+}
+
+export async function deleteComposeProject(name: string): Promise<ActionSuccess> {
+  return requestAction(`/api/v1/compose/projects/${encodeURIComponent(name)}`, {
     method: 'DELETE',
   })
 }
