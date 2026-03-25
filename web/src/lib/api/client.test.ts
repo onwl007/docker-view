@@ -9,11 +9,16 @@ import {
   deleteVolume,
   fetchAuditEvents,
   fetchContainers,
+  fetchImageDetail,
+  fetchNetworkDetail,
   fetchContainerLogs,
   fetchMonitoringContainers,
   fetchMonitoringHost,
   fetchSettings,
   fetchSystemSummary,
+  fetchVolumeDetail,
+  fetchVolumeFileContent,
+  fetchVolumeFiles,
   pullImage,
   pruneImages,
   saveSettings,
@@ -192,8 +197,133 @@ describe('fetchContainers', () => {
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       5,
-      '/api/v1/images/sha256:abc?force=true',
+      '/api/v1/images/sha256%3Aabc?force=true',
       expect.objectContaining({ method: 'DELETE' }),
+    )
+  })
+
+  it('fetches image detail with an encoded image id', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            id: 'sha256:abc',
+            shortId: 'abc',
+            repoTags: ['nginx:latest'],
+            createdAt: '2026-03-24T12:00:00Z',
+            sizeBytes: 1234,
+            containers: 1,
+            inUse: true,
+          },
+        }),
+        { status: 200 },
+      ),
+    )
+
+    const payload = await fetchImageDetail('sha256:abc')
+
+    expect(payload.shortId).toBe('abc')
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/images/sha256%3Aabc', expect.anything())
+  })
+
+  it('fetches volume detail and file data with encoded paths', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              name: 'postgres_data',
+              driver: 'local',
+              mountpoint: '/var/lib/docker/volumes/postgres_data/_data',
+              createdAt: '2026-03-25T12:00:00Z',
+              scope: 'local',
+              sizeBytes: 1234,
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              volumeName: 'postgres_data',
+              mountpoint: '/var/lib/docker/volumes/postgres_data/_data',
+              currentPath: 'config',
+              entries: [{ name: 'app.env', path: 'config/app.env', type: 'file', sizeBytes: 8, modifiedAt: '2026-03-25T12:00:00Z' }],
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              volumeName: 'postgres_data',
+              path: 'config/app.env',
+              name: 'app.env',
+              sizeBytes: 8,
+              modifiedAt: '2026-03-25T12:00:00Z',
+              content: 'PORT=80',
+              truncated: false,
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+
+    const detail = await fetchVolumeDetail('postgres_data')
+    const listing = await fetchVolumeFiles('postgres_data', 'config')
+    const content = await fetchVolumeFileContent('postgres_data', 'config/app.env')
+
+    expect(detail.name).toBe('postgres_data')
+    expect(listing.currentPath).toBe('config')
+    expect(content.name).toBe('app.env')
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/v1/volumes/postgres_data', expect.anything())
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/v1/volumes/postgres_data/files?path=config', expect.anything())
+    expect(fetchMock).toHaveBeenNthCalledWith(3, '/api/v1/volumes/postgres_data/file?path=config%2Fapp.env', expect.anything())
+  })
+
+  it('fetches network detail with an encoded id', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            id: 'network/id',
+            shortId: 'network-id',
+            name: 'frontend',
+            driver: 'bridge',
+            scope: 'local',
+            createdAt: '2026-03-25T12:00:00Z',
+            internal: false,
+            attachable: true,
+            ingress: false,
+            enableIPv4: true,
+            enableIPv6: false,
+          },
+        }),
+        { status: 200 },
+      ),
+    )
+
+    const payload = await fetchNetworkDetail('network/id')
+
+    expect(payload.name).toBe('frontend')
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/networks/network%2Fid', expect.anything())
+  })
+
+  it('surfaces a clear error when the api returns html instead of json', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('<!doctype html><html><body>dev shell</body></html>', {
+        status: 200,
+        headers: { 'Content-Type': 'text/html' },
+      }),
+    )
+
+    await expect(fetchImageDetail('sha256:abc')).rejects.toThrow(
+      'API returned HTML instead of JSON. This usually means the Go backend route did not match, the backend was not restarted, or the Vite dev server served index.html.',
     )
   })
 

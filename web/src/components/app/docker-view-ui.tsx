@@ -1,18 +1,20 @@
-import type { ReactNode } from 'react'
+import type { ComponentType, ReactNode } from 'react'
 import {
   Circle,
   ChevronDown,
   Filter,
   Gauge,
   Search,
-  Square,
   X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { BrandMark } from '@/components/app/brand-mark'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+
+type AppIconComponent = ComponentType<{ className?: string }>
 
 type AccentTone = 'default' | 'green' | 'blue' | 'amber' | 'purple'
 
@@ -36,16 +38,18 @@ export function PageToolbar({
   title,
   description,
   actions,
+  icon: Icon,
 }: {
   title: string
   description: string
   actions?: ReactNode
+  icon?: LucideIcon
 }) {
   return (
     <header className="flex items-start justify-between gap-4 border-b border-[rgba(17,17,17,0.06)] px-4 py-2.5 sm:px-5">
       <div className="flex items-start gap-3">
-        <div className="flex h-7 w-7 items-center justify-center rounded-md border border-[rgba(17,17,17,0.08)] bg-white">
-          <Square className="h-3.5 w-3.5 text-[#111111]" />
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[rgba(17,17,17,0.08)] bg-[linear-gradient(180deg,#ffffff,#f4f4f2)] text-[#111111] shadow-[0_1px_2px_rgba(17,17,17,0.04),inset_0_1px_0_rgba(255,255,255,0.8)]">
+          {Icon ? <Icon className="h-4.5 w-4.5" /> : <BrandMark className="h-5 w-5 text-[#111111]" />}
         </div>
         <div>
           <h1 className="text-[22px] font-semibold tracking-[-0.03em] text-[#111111]">
@@ -559,15 +563,31 @@ export function ModalSurface({
   description,
   children,
   onClose,
+  size = 'md',
 }: {
   title: string
   description: string
   children: ReactNode
   onClose: () => void
+  size?: 'sm' | 'md' | 'lg' | 'xl'
 }) {
+  const sizeClassName =
+    size === 'sm'
+      ? 'max-w-[420px]'
+      : size === 'lg'
+        ? 'max-w-[920px]'
+        : size === 'xl'
+          ? 'max-w-[1080px]'
+          : 'max-w-[480px]'
+
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-[rgba(17,17,17,0.42)] p-4">
-      <div className="w-full max-w-[480px] rounded-[18px] bg-white p-6 shadow-[0_24px_60px_rgba(17,17,17,0.2)]">
+      <div
+        className={cn(
+          'w-full rounded-[18px] bg-white p-6 shadow-[0_24px_60px_rgba(17,17,17,0.2)]',
+          sizeClassName,
+        )}
+      >
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-[20px] font-semibold tracking-[-0.03em] text-[#111111]">
@@ -710,14 +730,15 @@ export function AppTopBar({
   workspaceIcon: WorkspaceIcon,
 }: {
   productName: string
-  workspaceIcon: LucideIcon
+  workspaceIcon: AppIconComponent
 }) {
   return (
     <header className="border-b border-[rgba(17,17,17,0.06)] bg-[#fbfbfa]">
       <div className="flex h-16 items-center justify-between px-4 sm:px-6">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#2f80ed] text-white shadow-[0_10px_24px_rgba(47,128,237,0.28)]">
-            <WorkspaceIcon className="h-5 w-5" />
+          <div className="relative flex h-11 w-11 items-center justify-center rounded-[1.1rem] border border-[rgba(24,86,178,0.16)] bg-[radial-gradient(circle_at_30%_30%,#78b7ff,#2f80ed_58%,#174a9f)] text-[#f7fbff] shadow-[0_12px_28px_rgba(47,128,237,0.24)]">
+            <div className="absolute inset-[1px] rounded-[1rem] border border-[rgba(255,255,255,0.18)]" />
+            <WorkspaceIcon className="relative h-5.5 w-5.5" />
           </div>
           <div>
             <div className="text-[16px] font-semibold tracking-[-0.03em] text-[#111111]">

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Container, Cpu, HardDrive, Network, Server } from 'lucide-react'
+import { Container, Cpu, HardDrive, LayoutDashboard, Network, Server } from 'lucide-react'
 import {
   MetricCard,
   OverviewGrid,
@@ -27,6 +27,7 @@ export function DashboardPage() {
       <PageToolbar
         title="Dashboard"
         description="Overview of your Docker environment"
+        icon={LayoutDashboard}
       />
 
       {summaryQuery.isLoading ? <DashboardLoadingState /> : null}

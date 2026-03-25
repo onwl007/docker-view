@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { Network, Plus, Trash2 } from 'lucide-react'
+import { Info, Network, Plus, Trash2 } from 'lucide-react'
 import {
   HeaderActionButton,
   MetricCard,
@@ -17,13 +17,17 @@ import {
   TableViewport,
   TagBadge,
 } from '@/components/app/docker-view-ui'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useCreateNetworkMutation, useDeleteNetworkMutation } from '@/features/resources/mutations'
-import { networksQueryOptions } from '@/features/resources/query-options'
-import type { NetworkListItem } from '@/lib/api/client'
-import { formatRelativeTime } from '@/lib/display'
+import { networkDetailQueryOptions, networksQueryOptions } from '@/features/resources/query-options'
+import type { NetworkDetail, NetworkListItem } from '@/lib/api/client'
+import { formatDateTime, formatRelativeTime } from '@/lib/display'
 
-type PendingNetworkAction = { kind: 'create' } | { kind: 'delete'; row: NetworkListItem }
+type PendingNetworkAction =
+  | { kind: 'create' }
+  | { kind: 'info'; row: NetworkListItem }
+  | { kind: 'delete'; row: NetworkListItem }
 
 export function NetworksPage() {
   const search = useSearch({ from: '/networks' })
@@ -76,10 +80,11 @@ export function NetworksPage() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="flex h-full min-h-0 flex-col gap-3">
       <PageToolbar
         title="Networks"
         description="Browse Docker networks and attached containers"
+        icon={Network}
         actions={
           <HeaderActionButton variant="default" onClick={() => setPendingAction({ kind: 'create' })}>
             <Plus className="h-4 w-4" />
@@ -101,7 +106,7 @@ export function NetworksPage() {
         <MetricCard label="Search Query" value={search.q || 'All'} accent="blue" />
       </OverviewGrid>
 
-      <PageSection className="relative flex flex-col">
+      <PageSection className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         <SectionHeading
           icon={Network}
           title="All Networks"
@@ -167,9 +172,16 @@ export function NetworksPage() {
                     </td>
                     <td className="py-2.5 text-[15px] text-[#6a6a6a]">{formatRelativeTime(row.createdAt)}</td>
                     <td className="py-2.5">
-                      <button className="text-sm font-medium text-[#b24b4b]" disabled={activeMutation} type="button" onClick={() => setPendingAction({ kind: 'delete', row })}>
-                        Delete
-                      </button>
+                      <div className="flex flex-wrap gap-2">
+                        <Button size="sm" variant="ghost" disabled={activeMutation} onClick={() => setPendingAction({ kind: 'info', row })}>
+                          <Info className="h-3.5 w-3.5" />
+                          Info
+                        </Button>
+                        <Button size="sm" variant="ghost" disabled={activeMutation} onClick={() => setPendingAction({ kind: 'delete', row })} className="text-[#b24b4b] hover:text-[#b24b4b]">
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -199,6 +211,174 @@ export function NetworksPage() {
           <ModalFooter confirmLabel={activeMutation ? 'Working...' : 'Delete'} confirmIcon={Trash2} onCancel={() => setPendingAction(null)} onConfirm={() => void confirmAction()} confirmDisabled={activeMutation} />
         </ModalSurface>
       ) : null}
+
+      {pendingAction?.kind === 'info' ? (
+        <NetworkInfoModal row={pendingAction.row} onClose={() => setPendingAction(null)} />
+      ) : null}
+    </div>
+  )
+}
+
+function NetworkInfoModal({ row, onClose }: { row: NetworkListItem; onClose: () => void }) {
+  const detailQuery = useQuery(networkDetailQueryOptions(row.id))
+  const labels = detailQuery.data?.labels ? Object.entries(detailQuery.data.labels).sort(([left], [right]) => left.localeCompare(right)) : []
+  const options = detailQuery.data?.options ? Object.entries(detailQuery.data.options).sort(([left], [right]) => left.localeCompare(right)) : []
+  const ipamOptions = detailQuery.data?.ipamOptions ? Object.entries(detailQuery.data.ipamOptions).sort(([left], [right]) => left.localeCompare(right)) : []
+
+  return (
+    <ModalSurface title="Network Info" description={`${row.name} inspect details`} onClose={onClose} size="lg">
+      {detailQuery.isLoading ? <div className="text-sm text-[#8b8b8b]">Loading network info...</div> : null}
+      {detailQuery.error ? <div className="text-sm text-[#b24b4b]">{detailQuery.error.message}</div> : null}
+      {detailQuery.data ? (
+        <div className="flex max-h-[72vh] flex-col gap-4 overflow-y-auto pr-1">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <InfoField label="Name" value={detailQuery.data.name} />
+            <InfoField label="Network ID" value={detailQuery.data.id} mono />
+            <InfoField label="Short ID" value={detailQuery.data.shortId} mono />
+            <InfoField label="Driver" value={detailQuery.data.driver} />
+            <InfoField label="Scope" value={detailQuery.data.scope} />
+            <InfoField label="Created" value={formatDateTime(detailQuery.data.createdAt)} />
+            <InfoField label="Subnet" value={detailQuery.data.subnet} mono />
+            <InfoField label="Gateway" value={detailQuery.data.gateway} mono />
+            <InfoField label="IPAM Driver" value={detailQuery.data.ipamDriver} />
+            <InfoField label="Access" value={detailQuery.data.internal ? 'Internal' : 'External'} />
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-4">
+            <ToggleInfo label="Attachable" enabled={detailQuery.data.attachable} />
+            <ToggleInfo label="Ingress" enabled={detailQuery.data.ingress} />
+            <ToggleInfo label="IPv4" enabled={detailQuery.data.enableIPv4} />
+            <ToggleInfo label="IPv6" enabled={detailQuery.data.enableIPv6} />
+          </div>
+
+          <InfoTagSection title="Attached Containers" items={detailQuery.data.containerNames ?? []} />
+          <NetworkIpamSection detail={detailQuery.data} />
+          <InfoKeyValueSection title="Labels" items={labels} />
+          <InfoKeyValueSection title="Driver Options" items={options} />
+          <InfoKeyValueSection title="IPAM Options" items={ipamOptions} />
+          <NetworkContainersSection detail={detailQuery.data} />
+        </div>
+      ) : null}
+    </ModalSurface>
+  )
+}
+
+function InfoField({ label, value, mono = false }: { label: string; value?: string | null; mono?: boolean }) {
+  const resolvedValue = value?.trim() ? value : '-'
+
+  return (
+    <div className="rounded-2xl border border-[rgba(17,17,17,0.08)] bg-[#fcfcfc] px-3 py-2.5">
+      <div className="text-xs font-medium uppercase tracking-[0.12em] text-[#8b8b8b]">{label}</div>
+      <div className={`mt-1 break-all text-sm text-[#202020] ${mono ? 'font-mono text-[13px]' : ''}`} title={resolvedValue}>
+        {resolvedValue}
+      </div>
+    </div>
+  )
+}
+
+function ToggleInfo({ label, enabled }: { label: string; enabled: boolean }) {
+  return (
+    <div className="rounded-2xl border border-[rgba(17,17,17,0.08)] px-3 py-3">
+      <div className="text-xs font-medium uppercase tracking-[0.12em] text-[#8b8b8b]">{label}</div>
+      <div className="mt-2">
+        <StatusBadge status={enabled ? 'running' : 'stopped'} />
+      </div>
+    </div>
+  )
+}
+
+function InfoTagSection({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="text-sm font-medium text-[#5d5d5d]">{title}</div>
+      {items.length ? (
+        <div className="flex flex-wrap gap-2">
+          {items.map((item) => (
+            <TagBadge key={item}>{item}</TagBadge>
+          ))}
+        </div>
+      ) : (
+        <div className="text-sm text-[#8b8b8b]">No data available.</div>
+      )}
+    </div>
+  )
+}
+
+function InfoKeyValueSection({ title, items }: { title: string; items: Array<[string, string]> }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="text-sm font-medium text-[#5d5d5d]">{title}</div>
+      {items.length ? (
+        <div className="rounded-2xl border border-[rgba(17,17,17,0.08)]">
+          {items.map(([key, value]) => (
+            <div
+              key={key}
+              className="border-b border-[rgba(17,17,17,0.06)] px-3 py-3 text-sm last:border-b-0"
+            >
+              <div className="min-w-0 text-xs font-semibold uppercase tracking-[0.12em] text-[#6f6f6f]">
+                {key}
+              </div>
+              <div className="mt-2 min-w-0 whitespace-pre-wrap break-all font-mono text-[13px] leading-6 text-[#4f5f73]">
+                {value}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-sm text-[#8b8b8b]">No data available.</div>
+      )}
+    </div>
+  )
+}
+
+function NetworkIpamSection({ detail }: { detail: NetworkDetail }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="text-sm font-medium text-[#5d5d5d]">IPAM Configs</div>
+      {detail.ipamConfigs?.length ? (
+        <div className="rounded-2xl border border-[rgba(17,17,17,0.08)]">
+          {detail.ipamConfigs.map((item, index) => (
+            <div key={`${item.subnet}-${index}`} className="grid gap-3 border-b border-[rgba(17,17,17,0.06)] px-3 py-3 text-sm last:border-b-0 md:grid-cols-3">
+              <div>
+                <div className="text-xs uppercase tracking-[0.12em] text-[#8b8b8b]">Subnet</div>
+                <div className="mt-1 font-mono text-[#202020]">{item.subnet || '-'}</div>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-[0.12em] text-[#8b8b8b]">Gateway</div>
+                <div className="mt-1 font-mono text-[#202020]">{item.gateway || '-'}</div>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-[0.12em] text-[#8b8b8b]">IP Range</div>
+                <div className="mt-1 font-mono text-[#202020]">{item.ipRange || '-'}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-sm text-[#8b8b8b]">No IPAM config declared.</div>
+      )}
+    </div>
+  )
+}
+
+function NetworkContainersSection({ detail }: { detail: NetworkDetail }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="text-sm font-medium text-[#5d5d5d]">Connected Containers</div>
+      {detail.containers?.length ? (
+        <div className="rounded-2xl border border-[rgba(17,17,17,0.08)]">
+          {detail.containers.map((container) => (
+            <div key={container.id} className="grid gap-3 border-b border-[rgba(17,17,17,0.06)] px-3 py-3 text-sm last:border-b-0 md:grid-cols-[140px_120px_minmax(0,1fr)_minmax(0,1fr)]">
+              <span className="font-medium text-[#303030]">{container.name}</span>
+              <span className="font-mono text-[#8b8b8b]">{container.shortId}</span>
+              <span className="font-mono text-[#202020]">{container.ipv4Address || '-'}</span>
+              <span className="font-mono text-[#202020]">{container.macAddress || '-'}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-sm text-[#8b8b8b]">No attached containers.</div>
+      )}
     </div>
   )
 }

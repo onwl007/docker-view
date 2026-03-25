@@ -27,10 +27,11 @@ export function AuditPage() {
   const items = query.data?.items ?? []
   const pagedItems = items.slice((page - 1) * pageSize, page * pageSize)
   return (
-    <div className="space-y-3">
+    <div className="flex h-full min-h-0 flex-col gap-3">
       <PageToolbar
         title="Audit"
         description="Review recent sensitive operations and export the in-process audit trail"
+        icon={ShieldCheck}
         actions={
           <HeaderActionButton onClick={() => void downloadAuditEvents({ q: search.q })}>
             <Download className="h-4 w-4" />
@@ -46,7 +47,7 @@ export function AuditPage() {
         <MetricCard label="Search Query" value={search.q || 'All'} accent="blue" />
       </OverviewGrid>
 
-      <PageSection className="relative flex flex-col">
+      <PageSection className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         <SectionHeading
           icon={ShieldCheck}
           title="Recent Events"

@@ -52,10 +52,11 @@ export function MonitoringPage() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="flex h-full min-h-0 flex-col gap-3">
       <PageToolbar
         title="Monitoring"
         description="Live Docker resource usage snapshots"
+        icon={Activity}
         actions={
           <>
             <div className="flex items-center gap-2 rounded-xl border border-[rgba(17,17,17,0.08)] bg-white px-2 py-1 shadow-[0_1px_2px_rgba(17,17,17,0.04)]">
@@ -121,7 +122,7 @@ export function MonitoringPage() {
         </OverviewGrid>
       ) : null}
 
-      <PageSection className="flex flex-col">
+      <PageSection className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <SectionHeading
           icon={Activity}
           title="Container Resources"

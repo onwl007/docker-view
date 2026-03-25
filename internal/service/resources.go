@@ -61,6 +61,29 @@ type ImageListItem struct {
 	InUse      bool      `json:"inUse"`
 }
 
+type ImageDetail struct {
+	ID           string            `json:"id"`
+	ShortID      string            `json:"shortId"`
+	RepoTags     []string          `json:"repoTags"`
+	RepoDigests  []string          `json:"repoDigests,omitempty"`
+	CreatedAt    time.Time         `json:"createdAt"`
+	SizeBytes    int64             `json:"sizeBytes"`
+	Containers   int64             `json:"containers"`
+	InUse        bool              `json:"inUse"`
+	Architecture string            `json:"architecture,omitempty"`
+	Variant      string            `json:"variant,omitempty"`
+	OS           string            `json:"os,omitempty"`
+	Author       string            `json:"author,omitempty"`
+	User         string            `json:"user,omitempty"`
+	WorkingDir   string            `json:"workingDir,omitempty"`
+	Entrypoint   []string          `json:"entrypoint,omitempty"`
+	Command      []string          `json:"command,omitempty"`
+	Env          []string          `json:"env,omitempty"`
+	Labels       map[string]string `json:"labels,omitempty"`
+	ExposedPorts []string          `json:"exposedPorts,omitempty"`
+	Layers       []string          `json:"layers,omitempty"`
+}
+
 type VolumeListItem struct {
 	Name               string    `json:"name"`
 	Driver             string    `json:"driver"`
@@ -69,6 +92,45 @@ type VolumeListItem struct {
 	Scope              string    `json:"scope"`
 	SizeBytes          int64     `json:"sizeBytes"`
 	AttachedContainers []string  `json:"attachedContainers,omitempty"`
+}
+
+type VolumeDetail struct {
+	Name               string            `json:"name"`
+	Driver             string            `json:"driver"`
+	Mountpoint         string            `json:"mountpoint"`
+	CreatedAt          time.Time         `json:"createdAt"`
+	Scope              string            `json:"scope"`
+	SizeBytes          int64             `json:"sizeBytes"`
+	Labels             map[string]string `json:"labels,omitempty"`
+	Options            map[string]string `json:"options,omitempty"`
+	Status             map[string]any    `json:"status,omitempty"`
+	AttachedContainers []string          `json:"attachedContainers,omitempty"`
+}
+
+type VolumeFileEntry struct {
+	Name       string    `json:"name"`
+	Path       string    `json:"path"`
+	Type       string    `json:"type"`
+	SizeBytes  int64     `json:"sizeBytes"`
+	ModifiedAt time.Time `json:"modifiedAt"`
+}
+
+type VolumeFileListing struct {
+	VolumeName  string            `json:"volumeName"`
+	Mountpoint  string            `json:"mountpoint"`
+	CurrentPath string            `json:"currentPath"`
+	ParentPath  string            `json:"parentPath,omitempty"`
+	Entries     []VolumeFileEntry `json:"entries"`
+}
+
+type VolumeFileContent struct {
+	VolumeName string    `json:"volumeName"`
+	Path       string    `json:"path"`
+	Name       string    `json:"name"`
+	SizeBytes  int64     `json:"sizeBytes"`
+	ModifiedAt time.Time `json:"modifiedAt"`
+	Content    string    `json:"content"`
+	Truncated  bool      `json:"truncated"`
 }
 
 type NetworkListItem struct {
@@ -84,11 +146,56 @@ type NetworkListItem struct {
 	ContainerNames []string  `json:"containerNames,omitempty"`
 }
 
+type NetworkIPAMConfig struct {
+	Subnet       string            `json:"subnet,omitempty"`
+	IPRange      string            `json:"ipRange,omitempty"`
+	Gateway      string            `json:"gateway,omitempty"`
+	AuxAddresses map[string]string `json:"auxAddresses,omitempty"`
+}
+
+type NetworkContainer struct {
+	ID          string `json:"id"`
+	ShortID     string `json:"shortId"`
+	Name        string `json:"name"`
+	EndpointID  string `json:"endpointId,omitempty"`
+	MacAddress  string `json:"macAddress,omitempty"`
+	IPv4Address string `json:"ipv4Address,omitempty"`
+	IPv6Address string `json:"ipv6Address,omitempty"`
+}
+
+type NetworkDetail struct {
+	ID             string              `json:"id"`
+	ShortID        string              `json:"shortId"`
+	Name           string              `json:"name"`
+	Driver         string              `json:"driver"`
+	Scope          string              `json:"scope"`
+	CreatedAt      time.Time           `json:"createdAt"`
+	Subnet         string              `json:"subnet,omitempty"`
+	Gateway        string              `json:"gateway,omitempty"`
+	Internal       bool                `json:"internal"`
+	Attachable     bool                `json:"attachable"`
+	Ingress        bool                `json:"ingress"`
+	EnableIPv4     bool                `json:"enableIPv4"`
+	EnableIPv6     bool                `json:"enableIPv6"`
+	Labels         map[string]string   `json:"labels,omitempty"`
+	Options        map[string]string   `json:"options,omitempty"`
+	IPAMDriver     string              `json:"ipamDriver,omitempty"`
+	IPAMOptions    map[string]string   `json:"ipamOptions,omitempty"`
+	IPAMConfigs    []NetworkIPAMConfig `json:"ipamConfigs,omitempty"`
+	Containers     []NetworkContainer  `json:"containers,omitempty"`
+	ContainerNames []string            `json:"containerNames,omitempty"`
+}
+
 type ResourcesService interface {
 	Containers(ctx context.Context, params ContainerListParams) (ListResult[ContainerListItem], error)
 	Images(ctx context.Context, params ImageListParams) (ListResult[ImageListItem], error)
+	Image(ctx context.Context, id string) (ImageDetail, error)
 	Volumes(ctx context.Context, params VolumeListParams) (ListResult[VolumeListItem], error)
+	Volume(ctx context.Context, name string) (VolumeDetail, error)
+	VolumeFiles(ctx context.Context, name, currentPath string) (VolumeFileListing, error)
+	VolumeFileContent(ctx context.Context, name, filePath string) (VolumeFileContent, error)
 	Networks(ctx context.Context, params NetworkListParams) (ListResult[NetworkListItem], error)
+	Network(ctx context.Context, id string) (NetworkDetail, error)
 }
 
 type resourcesService struct {
@@ -190,6 +297,51 @@ func (s *resourcesService) Images(ctx context.Context, params ImageListParams) (
 	return ListResult[ImageListItem]{
 		Items: items,
 		Total: len(items),
+	}, nil
+}
+
+func (s *resourcesService) Image(ctx context.Context, id string) (ImageDetail, error) {
+	if strings.TrimSpace(id) == "" {
+		return ImageDetail{}, &codedError{code: "invalid_argument", message: "image id is required"}
+	}
+
+	item, err := s.gateway.Image(ctx, id)
+	if err != nil {
+		return ImageDetail{}, wrapDockerError(err, "image not found", "image is not available in the current state")
+	}
+
+	containers := int64(0)
+	images, err := s.gateway.Images(ctx)
+	if err == nil {
+		for _, listed := range images {
+			if listed.ID == item.ID {
+				containers = listed.Containers
+				break
+			}
+		}
+	}
+
+	return ImageDetail{
+		ID:           item.ID,
+		ShortID:      shortID(item.ID),
+		RepoTags:     append([]string(nil), item.RepoTags...),
+		RepoDigests:  append([]string(nil), item.RepoDigests...),
+		CreatedAt:    item.CreatedAt,
+		SizeBytes:    item.SizeBytes,
+		Containers:   containers,
+		InUse:        containers > 0,
+		Architecture: item.Architecture,
+		Variant:      item.Variant,
+		OS:           item.OS,
+		Author:       item.Author,
+		User:         item.User,
+		WorkingDir:   item.WorkingDir,
+		Entrypoint:   append([]string(nil), item.Entrypoint...),
+		Command:      append([]string(nil), item.Command...),
+		Env:          append([]string(nil), item.Env...),
+		Labels:       cloneStringMap(item.Labels),
+		ExposedPorts: append([]string(nil), item.ExposedPorts...),
+		Layers:       append([]string(nil), item.Layers...),
 	}, nil
 }
 
@@ -389,6 +541,32 @@ func appendUnique(items []string, value string) []string {
 	}
 
 	return append(items, value)
+}
+
+func cloneStringMap(input map[string]string) map[string]string {
+	if len(input) == 0 {
+		return nil
+	}
+
+	output := make(map[string]string, len(input))
+	for key, value := range input {
+		output[key] = value
+	}
+
+	return output
+}
+
+func cloneAnyMap(input map[string]any) map[string]any {
+	if len(input) == 0 {
+		return nil
+	}
+
+	output := make(map[string]any, len(input))
+	for key, value := range input {
+		output[key] = value
+	}
+
+	return output
 }
 
 func itoa(value uint64) string {

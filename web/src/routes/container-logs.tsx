@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useParams } from '@tanstack/react-router'
-import { RefreshCw, TextSearch } from 'lucide-react'
+import { useNavigate, useParams } from '@tanstack/react-router'
+import { ArrowLeft, RefreshCw, TextSearch } from 'lucide-react'
 import {
   PageSection,
   PageToolbar,
@@ -24,6 +24,7 @@ export function ContainerLogsPage() {
 }
 
 function ContainerLogsView({ containerId }: { containerId: string }) {
+  const navigate = useNavigate()
   const [streamState, setStreamState] = useState<{
     key: string
     entries: ContainerLogEntry[]
@@ -127,11 +128,18 @@ function ContainerLogsView({ containerId }: { containerId: string }) {
       <PageToolbar
         title="Container Logs"
         description={`Historical logs and live stream for ${containerId}`}
+        icon={TextSearch}
         actions={
-          <Button size="sm" variant="secondary" onClick={() => void logsQuery.refetch()}>
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </Button>
+          <>
+            <Button size="sm" variant="ghost" onClick={() => void navigate({ to: '/containers' })}>
+              <ArrowLeft className="h-4 w-4" />
+              Back to Containers
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => void logsQuery.refetch()}>
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </Button>
+          </>
         }
       />
 

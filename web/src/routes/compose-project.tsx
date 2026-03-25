@@ -82,6 +82,7 @@ export function ComposeProjectDetailPage() {
       <PageToolbar
         title={projectName}
         description="Compose project detail, managed services and runtime state"
+        icon={Layers3}
         actions={
           <Button variant="ghost" size="sm" onClick={() => void navigate({ to: '/compose' })}>
             <ArrowLeft className="h-3.5 w-3.5" />

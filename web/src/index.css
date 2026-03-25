@@ -62,3 +62,21 @@ select {
   height: 100%;
   min-height: 100%;
 }
+
+.terminal-shell {
+  position: relative;
+}
+
+.terminal-shell .xterm {
+  height: 100%;
+}
+
+.terminal-shell .xterm-viewport {
+  border-radius: 0.8rem;
+}
+
+.terminal-shell .xterm-screen,
+.terminal-shell .xterm-helpers,
+.terminal-shell .xterm-viewport {
+  width: 100% !important;
+}

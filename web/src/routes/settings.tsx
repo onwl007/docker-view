@@ -7,6 +7,7 @@ import {
   Palette,
   RotateCcw,
   Save,
+  Settings as SettingsIcon,
   Shield,
 } from 'lucide-react'
 import {
@@ -77,6 +78,7 @@ export function SettingsPage() {
       <PageToolbar
         title="Settings"
         description="Configure DockerView preferences and controlled runtime options"
+        icon={SettingsIcon}
         actions={
           <>
             <HeaderActionButton onClick={handleReset}>

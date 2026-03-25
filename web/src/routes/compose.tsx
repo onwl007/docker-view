@@ -94,10 +94,11 @@ export function ComposeProjectsPage() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="flex h-full min-h-0 flex-col gap-3">
       <PageToolbar
         title="Compose"
         description="Browse Compose projects grouped from managed containers, networks and volumes"
+        icon={Layers3}
       />
 
       {feedback ? (
@@ -113,7 +114,7 @@ export function ComposeProjectsPage() {
         <MetricCard label="Search Query" value={search.q || 'All'} accent="blue" />
       </OverviewGrid>
 
-      <PageSection className="relative flex flex-col">
+      <PageSection className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         <SectionHeading
           icon={Layers3}
           title="Compose Projects"

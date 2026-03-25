@@ -112,6 +112,29 @@ export interface ImageListItem {
   inUse: boolean
 }
 
+export interface ImageDetail {
+  id: string
+  shortId: string
+  repoTags: string[]
+  repoDigests?: string[]
+  createdAt: string
+  sizeBytes: number
+  containers: number
+  inUse: boolean
+  architecture?: string
+  variant?: string
+  os?: string
+  author?: string
+  user?: string
+  workingDir?: string
+  entrypoint?: string[]
+  command?: string[]
+  env?: string[]
+  labels?: Record<string, string>
+  exposedPorts?: string[]
+  layers?: string[]
+}
+
 export interface VolumeListItem {
   name: string
   driver: string
@@ -120,6 +143,45 @@ export interface VolumeListItem {
   scope: string
   sizeBytes: number
   attachedContainers?: string[]
+}
+
+export interface VolumeDetail {
+  name: string
+  driver: string
+  mountpoint: string
+  createdAt: string
+  scope: string
+  sizeBytes: number
+  labels?: Record<string, string>
+  options?: Record<string, string>
+  status?: Record<string, unknown>
+  attachedContainers?: string[]
+}
+
+export interface VolumeFileEntry {
+  name: string
+  path: string
+  type: 'directory' | 'file' | 'symlink' | 'other'
+  sizeBytes: number
+  modifiedAt: string
+}
+
+export interface VolumeFileListing {
+  volumeName: string
+  mountpoint: string
+  currentPath: string
+  parentPath?: string
+  entries: VolumeFileEntry[]
+}
+
+export interface VolumeFileContent {
+  volumeName: string
+  path: string
+  name: string
+  sizeBytes: number
+  modifiedAt: string
+  content: string
+  truncated: boolean
 }
 
 export interface NetworkListItem {
@@ -132,6 +194,46 @@ export interface NetworkListItem {
   subnet?: string
   gateway?: string
   internal: boolean
+  containerNames?: string[]
+}
+
+export interface NetworkIPAMConfig {
+  subnet?: string
+  ipRange?: string
+  gateway?: string
+  auxAddresses?: Record<string, string>
+}
+
+export interface NetworkContainer {
+  id: string
+  shortId: string
+  name: string
+  endpointId?: string
+  macAddress?: string
+  ipv4Address?: string
+  ipv6Address?: string
+}
+
+export interface NetworkDetail {
+  id: string
+  shortId: string
+  name: string
+  driver: string
+  scope: string
+  createdAt: string
+  subnet?: string
+  gateway?: string
+  internal: boolean
+  attachable: boolean
+  ingress: boolean
+  enableIPv4: boolean
+  enableIPv6: boolean
+  labels?: Record<string, string>
+  options?: Record<string, string>
+  ipamDriver?: string
+  ipamOptions?: Record<string, string>
+  ipamConfigs?: NetworkIPAMConfig[]
+  containers?: NetworkContainer[]
   containerNames?: string[]
 }
 
@@ -336,12 +438,36 @@ export async function fetchImages(query?: string): Promise<ListResult<ImageListI
   return requestList<ImageListItem>('/api/v1/images', query ? { q: query } : undefined)
 }
 
+export async function fetchImageDetail(id: string): Promise<ImageDetail> {
+  return requestObject<ImageDetail>(`/api/v1/images/${encodeURIComponent(id)}`)
+}
+
 export async function fetchVolumes(query?: string): Promise<ListResult<VolumeListItem>> {
   return requestList<VolumeListItem>('/api/v1/volumes', query ? { q: query } : undefined)
 }
 
+export async function fetchVolumeDetail(name: string): Promise<VolumeDetail> {
+  return requestObject<VolumeDetail>(`/api/v1/volumes/${encodeURIComponent(name)}`)
+}
+
+export async function fetchVolumeFiles(name: string, currentPath = ''): Promise<VolumeFileListing> {
+  return requestObject<VolumeFileListing>(`/api/v1/volumes/${encodeURIComponent(name)}/files`, {
+    query: currentPath ? { path: currentPath } : undefined,
+  })
+}
+
+export async function fetchVolumeFileContent(name: string, filePath: string): Promise<VolumeFileContent> {
+  return requestObject<VolumeFileContent>(`/api/v1/volumes/${encodeURIComponent(name)}/file`, {
+    query: { path: filePath },
+  })
+}
+
 export async function fetchNetworks(query?: string): Promise<ListResult<NetworkListItem>> {
   return requestList<NetworkListItem>('/api/v1/networks', query ? { q: query } : undefined)
+}
+
+export async function fetchNetworkDetail(id: string): Promise<NetworkDetail> {
+  return requestObject<NetworkDetail>(`/api/v1/networks/${encodeURIComponent(id)}`)
 }
 
 export async function fetchMonitoringHost(): Promise<MonitoringHost> {
@@ -463,7 +589,7 @@ export async function pullImage(reference: string): Promise<ActionSuccess> {
 }
 
 export async function deleteImage(id: string, options: { force?: boolean } = {}): Promise<ActionSuccess> {
-  return requestAction(`/api/v1/images/${id}`, {
+  return requestAction(`/api/v1/images/${encodeURIComponent(id)}`, {
     method: 'DELETE',
     query: { force: options.force },
   })
@@ -535,9 +661,12 @@ async function requestObject<T>(
   options?: {
     method?: 'GET' | 'POST' | 'PUT'
     body?: unknown
+    query?: Record<string, string | number | boolean | undefined>
   },
 ): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const search = buildSearchParams(options?.query)
+  const suffix = search ? `?${search}` : ''
+  const response = await fetch(`${API_BASE_URL}${path}${suffix}`, {
     // Keep relative paths in tests and dev proxy setups.
     // buildApiUrl would turn these into absolute URLs.
     method: options?.method ?? 'GET',
@@ -551,7 +680,7 @@ async function requestObject<T>(
 
   clearUnauthorized()
 
-  const payload = (await response.json()) as ApiSuccess<T>
+  const payload = (await readApiSuccess<ApiSuccess<T>>(response)) as ApiSuccess<T>
   return payload.data
 }
 
@@ -571,7 +700,7 @@ async function requestList<T>(
 
   clearUnauthorized()
 
-  const payload = (await response.json()) as ApiListSuccess<T>
+  const payload = (await readApiSuccess<ApiListSuccess<T>>(response)) as ApiListSuccess<T>
   return {
     items: payload.data,
     total: payload.meta.total,
@@ -600,7 +729,7 @@ async function requestAction(
 
   clearUnauthorized()
 
-  const payload = (await response.json()) as ApiSuccess<ActionSuccess>
+  const payload = (await readApiSuccess<ApiSuccess<ActionSuccess>>(response)) as ApiSuccess<ActionSuccess>
   return payload.data
 }
 
@@ -629,6 +758,7 @@ function buildSearchParams(query?: Record<string, string | number | boolean | un
 }
 
 async function readApiError(response: Response) {
+  const responseCopy = response.clone()
   try {
     const payload = (await response.json()) as ApiErrorPayload
     const message = payload.error?.message || `Request failed with status ${response.status}`
@@ -641,7 +771,7 @@ async function readApiError(response: Response) {
     }
     return error
   } catch {
-    const message = `Request failed with status ${response.status}`
+    const message = await buildNonJsonResponseMessage(responseCopy, `Request failed with status ${response.status}`)
     const error = new ApiError(message, response.status)
     if (response.status === 401 || response.status === 403) {
       markUnauthorized({
@@ -651,4 +781,35 @@ async function readApiError(response: Response) {
     }
     return error
   }
+}
+
+async function readApiSuccess<T>(response: Response): Promise<T> {
+  const responseCopy = response.clone()
+  try {
+    return (await response.json()) as T
+  } catch {
+    throw new ApiError(
+      await buildNonJsonResponseMessage(
+        responseCopy,
+        'API returned a non-JSON response. The backend may be outdated or the dev proxy may have served the frontend shell instead.',
+      ),
+      response.status,
+    )
+  }
+}
+
+async function buildNonJsonResponseMessage(response: Response, fallback: string) {
+  const contentType = response.headers.get('content-type') ?? ''
+  const body = await response.text()
+  const snippet = body.trim().slice(0, 80)
+
+  if (snippet.startsWith('<!doctype html') || snippet.startsWith('<html')) {
+    return 'API returned HTML instead of JSON. This usually means the Go backend route did not match, the backend was not restarted, or the Vite dev server served index.html.'
+  }
+
+  if (!contentType.includes('application/json') && snippet) {
+    return `${fallback} Response starts with: ${snippet}`
+  }
+
+  return fallback
 }

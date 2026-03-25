@@ -33,12 +33,14 @@ export function RootLayout() {
                         <Link
                           key={item.to}
                           to={item.to}
-                          className="group mx-2 flex items-center gap-3 rounded-2xl px-4 py-2.5 text-[15px] font-medium text-[#2a2a2a] transition-colors hover:bg-[#f4f4f3]"
+                          className="group mx-2 flex items-center gap-3 rounded-2xl px-4 py-2.5 text-[15px] font-medium text-[#2a2a2a] transition-colors hover:bg-[#eef4ff]"
                           activeProps={{
-                            className: 'bg-[#f5f5f4]',
+                            className: 'bg-[#e8f1ff] text-[#174a9f] shadow-[inset_0_0_0_1px_rgba(47,128,237,0.08)]',
                           }}
                         >
-                          <Icon className="h-4.5 w-4.5 text-[#303030]" />
+                          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#f3f4f6] text-[#303030] transition-colors group-hover:bg-[#dce9ff] group-hover:text-[#2469d7] group-[.active]:bg-[#d9e8ff] group-[.active]:text-[#174a9f]">
+                            <Icon className="h-4.5 w-4.5" />
+                          </div>
                           <span>{item.label}</span>
                         </Link>
                       )

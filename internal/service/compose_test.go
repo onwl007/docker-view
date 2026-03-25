@@ -188,8 +188,48 @@ func (f fakeComposeGateway) Images(context.Context) ([]docker.Image, error) {
 	return nil, nil
 }
 
+func (f fakeComposeGateway) Image(context.Context, string) (docker.ImageDetail, error) {
+	return docker.ImageDetail{}, nil
+}
+
+func (f fakeComposeGateway) Volume(_ context.Context, name string) (docker.VolumeDetail, error) {
+	for _, item := range f.volumes {
+		if item.Name == name {
+			return docker.VolumeDetail{
+				Name:       item.Name,
+				Driver:     item.Driver,
+				Mountpoint: item.Mountpoint,
+				CreatedAt:  item.CreatedAt,
+				Scope:      item.Scope,
+				Labels:     item.Labels,
+				SizeBytes:  item.SizeBytes,
+			}, nil
+		}
+	}
+	return docker.VolumeDetail{}, nil
+}
+
 func (f fakeComposeGateway) Volumes(context.Context) ([]docker.Volume, error) {
 	return f.volumes, nil
+}
+
+func (f fakeComposeGateway) Network(_ context.Context, id string) (docker.NetworkDetail, error) {
+	for _, item := range f.networks {
+		if item.ID == id {
+			return docker.NetworkDetail{
+				ID:        item.ID,
+				Name:      item.Name,
+				CreatedAt: item.CreatedAt,
+				Scope:     item.Scope,
+				Driver:    item.Driver,
+				Internal:  item.Internal,
+				Labels:    item.Labels,
+				Subnet:    item.Subnet,
+				Gateway:   item.Gateway,
+			}, nil
+		}
+	}
+	return docker.NetworkDetail{}, nil
 }
 
 func (f fakeComposeGateway) Networks(context.Context) ([]docker.Network, error) {

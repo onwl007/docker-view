@@ -2,7 +2,6 @@ import {
   Activity,
   Container,
   Layers3,
-  Gauge,
   HardDrive,
   Image as ImageIcon,
   LayoutDashboard,
@@ -10,6 +9,7 @@ import {
   Settings,
   ShieldCheck,
 } from 'lucide-react'
+import { BrandMark } from '@/components/app/brand-mark'
 
 export const navigationSections = [
   {
@@ -36,5 +36,5 @@ export const navigationSections = [
 export const shellMeta = {
   productName: 'DockerView',
   tagline: 'Container management workspace',
-  workspaceIcon: Gauge,
+  workspaceIcon: BrandMark,
 } as const

@@ -98,10 +98,11 @@ export function ContainersPage() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="flex h-full min-h-0 flex-col gap-3">
       <PageToolbar
         title="Containers"
         description="Browse containers, runtime state and attached resources"
+        icon={Box}
       />
 
       {feedback ? (
@@ -119,7 +120,7 @@ export function ContainersPage() {
         <MetricCard label="Search Query" value={search.q || 'All'} accent="blue" />
       </OverviewGrid>
 
-      <PageSection className="relative flex flex-col">
+      <PageSection className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         <SectionHeading
           icon={Box}
           title="All Containers"

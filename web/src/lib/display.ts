@@ -41,6 +41,21 @@ export function formatRelativeTime(value: string) {
   })
 }
 
+export function formatDateTime(value: string) {
+  const timestamp = new Date(value)
+  if (Number.isNaN(timestamp.getTime())) {
+    return '-'
+  }
+
+  return timestamp.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
 export function normalizeContainerState(state: string) {
   switch (state) {
     case 'running':

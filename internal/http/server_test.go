@@ -161,6 +161,178 @@ func TestContainersList(t *testing.T) {
 	}
 }
 
+func TestImageDetail(t *testing.T) {
+	server := New(config.Config{
+		HTTP: config.HTTPConfig{Addr: ":8080"},
+	}, ServerOptions{
+		SystemSummaryService: stubSummaryService{},
+		ResourcesService: stubResourcesService{
+			image: service.ImageDetail{
+				ID:           "sha256:abc123",
+				ShortID:      "abc123",
+				RepoTags:     []string{"nginx:latest"},
+				RepoDigests:  []string{"nginx@sha256:def456"},
+				CreatedAt:    time.Date(2026, time.March, 24, 10, 0, 0, 0, time.UTC),
+				SizeBytes:    123456789,
+				Containers:   2,
+				InUse:        true,
+				Architecture: "amd64",
+				OS:           "linux",
+				Command:      []string{"nginx", "-g", "daemon off;"},
+				ExposedPorts: []string{"80/tcp", "443/tcp"},
+			},
+		},
+		MonitoringService:     stubMonitoringService{},
+		SettingsService:       stubSettingsService{},
+		ResourceActionService: stubResourceActionService{},
+	})
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v1/images/sha256:abc123", nil)
+	rec := httptest.NewRecorder()
+
+	server.Handler.ServeHTTP(rec, req)
+
+	if rec.Code != nethttp.StatusOK {
+		t.Fatalf("expected status %d, got %d", nethttp.StatusOK, rec.Code)
+	}
+
+	var payload successResponse[service.ImageDetail]
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if payload.Data.ID != "sha256:abc123" {
+		t.Fatalf("unexpected image id %q", payload.Data.ID)
+	}
+
+	if len(payload.Data.ExposedPorts) != 2 {
+		t.Fatalf("unexpected image ports %+v", payload.Data.ExposedPorts)
+	}
+}
+
+func TestVolumeDetail(t *testing.T) {
+	server := New(config.Config{
+		HTTP: config.HTTPConfig{Addr: ":8080"},
+	}, ServerOptions{
+		SystemSummaryService: stubSummaryService{},
+		ResourcesService: stubResourcesService{
+			volume: service.VolumeDetail{
+				Name:               "postgres_data",
+				Driver:             "local",
+				Mountpoint:         "/var/lib/docker/volumes/postgres_data",
+				CreatedAt:          time.Date(2026, time.March, 24, 10, 0, 0, 0, time.UTC),
+				Scope:              "local",
+				SizeBytes:          1024,
+				AttachedContainers: []string{"postgres"},
+			},
+		},
+		MonitoringService:     stubMonitoringService{},
+		SettingsService:       stubSettingsService{},
+		ResourceActionService: stubResourceActionService{},
+	})
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v1/volumes/postgres_data", nil)
+	rec := httptest.NewRecorder()
+
+	server.Handler.ServeHTTP(rec, req)
+
+	if rec.Code != nethttp.StatusOK {
+		t.Fatalf("expected status %d, got %d", nethttp.StatusOK, rec.Code)
+	}
+
+	var payload successResponse[service.VolumeDetail]
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if payload.Data.Name != "postgres_data" {
+		t.Fatalf("unexpected volume name %q", payload.Data.Name)
+	}
+}
+
+func TestVolumeFiles(t *testing.T) {
+	server := New(config.Config{
+		HTTP: config.HTTPConfig{Addr: ":8080"},
+	}, ServerOptions{
+		SystemSummaryService: stubSummaryService{},
+		ResourcesService: stubResourcesService{
+			volumeFiles: service.VolumeFileListing{
+				VolumeName:  "postgres_data",
+				Mountpoint:  "/var/lib/docker/volumes/postgres_data",
+				CurrentPath: "config",
+				ParentPath:  "",
+				Entries: []service.VolumeFileEntry{{
+					Name: "app.env",
+					Path: "config/app.env",
+					Type: "file",
+				}},
+			},
+		},
+		MonitoringService:     stubMonitoringService{},
+		SettingsService:       stubSettingsService{},
+		ResourceActionService: stubResourceActionService{},
+	})
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v1/volumes/postgres_data/files?path=config", nil)
+	rec := httptest.NewRecorder()
+
+	server.Handler.ServeHTTP(rec, req)
+
+	if rec.Code != nethttp.StatusOK {
+		t.Fatalf("expected status %d, got %d", nethttp.StatusOK, rec.Code)
+	}
+
+	var payload successResponse[service.VolumeFileListing]
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if payload.Data.CurrentPath != "config" {
+		t.Fatalf("unexpected current path %q", payload.Data.CurrentPath)
+	}
+}
+
+func TestNetworkDetail(t *testing.T) {
+	server := New(config.Config{
+		HTTP: config.HTTPConfig{Addr: ":8080"},
+	}, ServerOptions{
+		SystemSummaryService: stubSummaryService{},
+		ResourcesService: stubResourcesService{
+			network: service.NetworkDetail{
+				ID:         "network-123456",
+				ShortID:    "network-1234",
+				Name:       "frontend",
+				Driver:     "bridge",
+				Scope:      "local",
+				CreatedAt:  time.Date(2026, time.March, 24, 10, 0, 0, 0, time.UTC),
+				Internal:   true,
+				Containers: []service.NetworkContainer{{Name: "nginx"}},
+			},
+		},
+		MonitoringService:     stubMonitoringService{},
+		SettingsService:       stubSettingsService{},
+		ResourceActionService: stubResourceActionService{},
+	})
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v1/networks/network-123456", nil)
+	rec := httptest.NewRecorder()
+
+	server.Handler.ServeHTTP(rec, req)
+
+	if rec.Code != nethttp.StatusOK {
+		t.Fatalf("expected status %d, got %d", nethttp.StatusOK, rec.Code)
+	}
+
+	var payload successResponse[service.NetworkDetail]
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if payload.Data.Name != "frontend" {
+		t.Fatalf("unexpected network name %q", payload.Data.Name)
+	}
+}
+
 func TestContainerStart(t *testing.T) {
 	server := New(config.Config{
 		HTTP: config.HTTPConfig{Addr: ":8080"},
@@ -490,8 +662,16 @@ type stubSummaryService struct {
 }
 
 type stubResourcesService struct {
-	containers service.ListResult[service.ContainerListItem]
-	err        error
+	containers        service.ListResult[service.ContainerListItem]
+	images            service.ListResult[service.ImageListItem]
+	image             service.ImageDetail
+	volumes           service.ListResult[service.VolumeListItem]
+	volume            service.VolumeDetail
+	volumeFiles       service.VolumeFileListing
+	volumeFileContent service.VolumeFileContent
+	networks          service.ListResult[service.NetworkListItem]
+	network           service.NetworkDetail
+	err               error
 }
 
 type stubComposeService struct {
@@ -555,15 +735,35 @@ func (s stubResourcesService) Containers(_ context.Context, _ service.ContainerL
 }
 
 func (s stubResourcesService) Images(_ context.Context, _ service.ImageListParams) (service.ListResult[service.ImageListItem], error) {
-	return service.ListResult[service.ImageListItem]{}, s.err
+	return s.images, s.err
+}
+
+func (s stubResourcesService) Image(_ context.Context, _ string) (service.ImageDetail, error) {
+	return s.image, s.err
 }
 
 func (s stubResourcesService) Volumes(_ context.Context, _ service.VolumeListParams) (service.ListResult[service.VolumeListItem], error) {
-	return service.ListResult[service.VolumeListItem]{}, s.err
+	return s.volumes, s.err
+}
+
+func (s stubResourcesService) Volume(_ context.Context, _ string) (service.VolumeDetail, error) {
+	return s.volume, s.err
+}
+
+func (s stubResourcesService) VolumeFiles(_ context.Context, _, _ string) (service.VolumeFileListing, error) {
+	return s.volumeFiles, s.err
+}
+
+func (s stubResourcesService) VolumeFileContent(_ context.Context, _, _ string) (service.VolumeFileContent, error) {
+	return s.volumeFileContent, s.err
 }
 
 func (s stubResourcesService) Networks(_ context.Context, _ service.NetworkListParams) (service.ListResult[service.NetworkListItem], error) {
-	return service.ListResult[service.NetworkListItem]{}, s.err
+	return s.networks, s.err
+}
+
+func (s stubResourcesService) Network(_ context.Context, _ string) (service.NetworkDetail, error) {
+	return s.network, s.err
 }
 
 func (s stubComposeService) Projects(_ context.Context, _ service.ComposeProjectListParams) (service.ListResult[service.ComposeProjectListItem], error) {

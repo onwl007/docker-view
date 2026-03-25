@@ -270,6 +270,16 @@ func New(cfg config.Config, opts ServerOptions) *http.Server {
 		})
 	})
 
+	mux.HandleFunc("GET /api/v1/images/{id}", func(w http.ResponseWriter, r *http.Request) {
+		item, err := opts.ResourcesService.Image(r.Context(), r.PathValue("id"))
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, successResponse[service.ImageDetail]{Data: item})
+	})
+
 	mux.HandleFunc("/api/v1/volumes", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
@@ -290,6 +300,36 @@ func New(cfg config.Config, opts ServerOptions) *http.Server {
 		})
 	})
 
+	mux.HandleFunc("GET /api/v1/volumes/{name}", func(w http.ResponseWriter, r *http.Request) {
+		item, err := opts.ResourcesService.Volume(r.Context(), r.PathValue("name"))
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, successResponse[service.VolumeDetail]{Data: item})
+	})
+
+	mux.HandleFunc("GET /api/v1/volumes/{name}/files", func(w http.ResponseWriter, r *http.Request) {
+		item, err := opts.ResourcesService.VolumeFiles(r.Context(), r.PathValue("name"), r.URL.Query().Get("path"))
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, successResponse[service.VolumeFileListing]{Data: item})
+	})
+
+	mux.HandleFunc("GET /api/v1/volumes/{name}/file", func(w http.ResponseWriter, r *http.Request) {
+		item, err := opts.ResourcesService.VolumeFileContent(r.Context(), r.PathValue("name"), r.URL.Query().Get("path"))
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, successResponse[service.VolumeFileContent]{Data: item})
+	})
+
 	mux.HandleFunc("/api/v1/networks", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
@@ -308,6 +348,16 @@ func New(cfg config.Config, opts ServerOptions) *http.Server {
 			Data: items.Items,
 			Meta: &responseMeta{Total: items.Total},
 		})
+	})
+
+	mux.HandleFunc("GET /api/v1/networks/{id}", func(w http.ResponseWriter, r *http.Request) {
+		item, err := opts.ResourcesService.Network(r.Context(), r.PathValue("id"))
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, successResponse[service.NetworkDetail]{Data: item})
 	})
 
 	mux.HandleFunc("POST /api/v1/containers/{id}/start", func(w http.ResponseWriter, r *http.Request) {
